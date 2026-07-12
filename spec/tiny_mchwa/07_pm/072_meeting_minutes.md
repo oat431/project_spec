@@ -1,9 +1,24 @@
 ---
-tags: [tiny-mchwa, daily]
-date: 2026-07-04
+document_type: Meeting Minutes / Daily Log
+version: "1.0"
+status: Active
+author: "Panomete"
+created: "2026-07-04"
+last_updated: "2026-07-04"
+project_name: "tiny mchwa"
+project_id: "tiny-mchwa"
+classification: "Internal"
+tags: [daily-log, meeting-minutes, homelab]
+standard_ref:
+  - PMBOK v8 — Monitoring & Controlling
 ---
 
-# tiny mchwa — Daily Log
+# Daily Log
+
+> **Project:** tiny mchwa 🐜
+> **Version:** 1.0 | **Status:** Active
+
+---
 
 ## 2026-07-04 (Day 1) 🐜
 
@@ -68,8 +83,9 @@ date: 2026-07-04
 
 ---
 
-## Related
-- [[00 Project Overview]]
-- [[01 Data Model]]
-- [[02 API Spec]]
-- [[03 Status Logic]]
+## Related Documents
+
+| Document | Relationship |
+|----------|-------------|
+| [[011_business_objective]] | Project objectives |
+| [[022_API_specification]] | API contract |

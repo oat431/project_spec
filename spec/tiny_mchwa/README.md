@@ -63,8 +63,3 @@ One service, multiple consumers. No duplicate todo implementations across servic
 
 ---
 
-## Related Documents
-
-- [[01 Data Model]]
-- [[02 API Spec]]
-- [[03 Status Logic]]
