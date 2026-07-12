@@ -12,17 +12,26 @@
 | Service Discovery | Flowero Discover  | Self     | English  | -        | ❌      | ❌      | discovery |
 | Load Balancer     | Flowero Loader    | Self     | English  | -        | ❌      | ❌      | loader    |
 | API gateway       | [[Flowero Gate]]  | Self     | English  | -        | ✅      | ✅      | gateway   |
-Development Status (Status Column)
+
+### Development Status (Status Column)
+
 ❌ = not start / not deploy
+
 ✅ = completed / deployed
+
 🛠️ = in progress
 
-Deployment Status (Deploy Column)
+### Deployment Status (Deploy Column)
 ❌ = not deploy
+
 ✅ = deployed
+
 🛠️ = doing CI/CD
 
-Authentication Type (Auth Column)
+### Authentication Type (Auth Column)
+
 🎯 = Simple JWT Authentication
+
 🎭 = Role-based JWT Authentication
+
 🌏 = Oauth (keycloak)
