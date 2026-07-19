@@ -10,7 +10,6 @@
 | Tarot             | white Jelen       | Deer     | Czech    | 🌏       | ❌      | ❌      | tarot     |
 | Oauth             | [[Flowero Guard]] | Self     | English  | keycloak | ✅      | ✅      | auth      |
 | Service Discovery | Flowero Discover  | Self     | English  | -        | ❌      | ❌      | discovery |
-| Load Balancer     | Flowero Loader    | Self     | English  | -        | ❌      | ❌      | loader    |
 | API gateway       | [[Flowero Gate]]  | Self     | English  | -        | ✅      | ✅      | gateway   |
 
 ### Development Status (Status Column)
