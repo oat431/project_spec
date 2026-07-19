@@ -4,13 +4,13 @@
 | ----------------- | ----------------- | -------- | -------- | -------- | ------ | ------ | --------- |
 | Blog              | cute gufo         | Owl      | Italy    | 🌏       | ❌      | ❌      | blog      |
 | Ledger            | [[Big Schwein]]   | Pig      | Germany  | 🌏       | ✅      | 🛠️    | ledger    |
-| Short link        | [[Fluffy Mouton]] | Sheep    | France   | 🌏       | 🛠️    | ❌      | short     |
-| To do list        | tiny mchwa        | Ant      | Swahili  | 🌏       | ❌      | ❌      | todo      |
-| Cook book         | shy ardilla       | Squirrel | Spanish  | 🌏       | ❌      | ❌      | cookdb    |
-| Tarot             | white Jelen       | Deer     | Czech    | 🌏       | ❌      | ❌      | tarot     |
+| Url Shortener     | [[Fluffy Mouton]] | Sheep    | France   | 🌏       | 🛠️    | ❌      | shared    |
+| Todo list         | tiny mchwa        | Ant      | Swahili  | 🌏       | ❌      | ❌      | todo      |
+| Cook book         | shy ardilla       | Squirrel | Spanish  | 🌏       | ❌      | ❌      | recipe    |
+| Hora              | white Jelen       | Deer     | Czech    | 🌏       | ❌      | ❌      | hora      |
 | Oauth             | [[Flowero Guard]] | Self     | English  | keycloak | ✅      | ✅      | auth      |
 | Service Discovery | Flowero Discover  | Self     | English  | -        | ❌      | ❌      | discovery |
-| API gateway       | [[Flowero Gate]]  | Self     | English  | -        | ✅      | ✅      | gateway   |
+| API gateway       | [[Flowero Gate]]  | Self     | English  | -        | ✅      | ✅      | api       |
 
 ### Development Status (Status Column)
 
