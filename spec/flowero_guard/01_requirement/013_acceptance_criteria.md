@@ -52,12 +52,12 @@ standard_ref:
 
 | AC ID | Scenario | Given | When | Then | Priority |
 |-------|---------|-------|------|------|----------|
-| AC-G001a | Healthy startup | Docker Compose file includes Keycloak + PostgreSQL services | `docker compose up` is executed | Keycloak is reachable at `https://panomete.local/auth` within 60 seconds; health check returns 200 | 🔴 |
+| AC-G001a | Healthy startup | Docker Compose file includes Keycloak + shared PostgreSQL | `docker compose up` is executed | Keycloak is reachable at `auth.panomete.com` within 60 seconds; health check returns 200 | 🔴 |
 | AC-G001b | Realm pre-configuration | Keycloak container starts with a mounted realm export JSON | Admin logs into the master realm | A `panomete` realm exists with pre-configured roles: `admin`, `user`, `viewer` | 🔴 |
 | AC-G001c | Realm import from file | The realm JSON file exists at `./keycloak/panomete-realm.json` | Keycloak starts with `--import-realm` flag | The `panomete` realm is imported; no manual UI configuration needed | 🔴 |
 | AC-G001d | Persistent state across restarts | Keycloak + PostgreSQL have been running; clients and users exist | `docker compose down && docker compose up` | All previously created clients, users, and roles are intact; no data loss | 🔴 |
 | AC-G001e | Failed startup — missing DB | PostgreSQL container is not running | Keycloak starts | Keycloak logs a clear error about database connectivity and retries; does not silently fail | 🟡 |
-| AC-G001f | Admin console access | Keycloak is running; admin credentials are set via env vars | Admin navigates to `/auth/admin/master/console/` | Admin console loads; admin can log in with credentials from environment variables | 🔴 |
+| AC-G001f | Admin console access | Keycloak is running; admin credentials are set via env vars | Admin navigates to `auth.panomete.com` | Admin console loads; admin can log in with credentials from environment variables | 🔴 |
 
 ### US-002: Register OAuth2 Clients
 
@@ -72,7 +72,7 @@ standard_ref:
 
 | AC ID | Scenario | Given | When | Then | Priority |
 |-------|---------|-------|------|------|----------|
-| AC-G003a | Redirect to login | User accesses `https://panomete.local/api/blog/posts` without authentication | The request hits Gate, which redirects to Keycloak | User sees the Keycloak login page at `https://panomete.local/auth/realms/panomete/protocol/openid-connect/auth` | 🔴 |
+| AC-G003a | Redirect to login | User accesses `api.panomete.com/api/blog/posts` without authentication | Gate returns 401. The client/frontend redirects the user to `auth.panomete.com` for login | User sees the Keycloak login page at `auth.panomete.com` | 🔴 |
 | AC-G003b | Successful login | User enters valid username and password on the Keycloak login page | User clicks Sign In | Keycloak redirects back with an authorization code; the client exchanges it for a JWT access token (5 min expiry) and refresh token (30 min expiry) | 🔴 |
 | AC-G003c | Failed login — bad password | User enters valid username but wrong password | User clicks Sign In | Keycloak displays "Invalid username or password" on the login page; no token issued | 🔴 |
 | AC-G003d | Single Sign-On | User logged into Service A (blog) and has a valid Keycloak session cookie | User navigates to Service B (URL shortener) | User is NOT prompted to log in again; Service B receives a valid token via SSO | 🔴 |

@@ -53,10 +53,11 @@ standard_ref:
 | **Service Type** | Foundation — Service Registry |
 | **Technology** | Spring Cloud Netflix Eureka Server |
 | **Language / Stack** | Java 21 / Spring Boot 3.x |
-| **Ports** | 8761 (internal), exposed through Flowero Gate |
+| **Ports** | 8999 (BE — registration API), 3999 (FE — dashboard) |
+| **Domain** | `discovery.panomete.com` (via Nginx) |
 | **Dependencies** | None (standalone, no database) |
-| **Consumed By** | All platform services (register + discover), Flowero Gate (route resolution) |
-| **Related Services** | Flowero Gate (resolves routes via Discover), Flowero Guard (secures dashboard) |
+| **Consumed By** | All platform services (register + discover), Gate (route resolution for business services) |
+| **Related Services** | Nginx (routes `discovery.panomete.com` → :3999/:8999) |
 
 ## 3. Personas
 
@@ -76,7 +77,7 @@ standard_ref:
 **So that** all microservices can register and discover each other dynamically from day one
 
 **Acceptance Criteria:**
-- **AC-1:** Given `docker compose up`, When the Eureka container starts, Then the Eureka dashboard is accessible at `https://panomete.local/eureka` (via Gate) within 30 seconds
+- **AC-1:** Given `docker compose up`, When the Eureka container starts, Then the Eureka dashboard is accessible at `discovery.panomete.com` (via Nginx) within 30 seconds
 - **AC-2:** Given Eureka is running, When I check the dashboard, Then it shows "No instances available" with zero registered services (clean initial state)
 - **AC-3:** Given the Eureka server, When it restarts, Then it begins accepting registrations within 15 seconds
 - **AC-4:** Given Eureka is deployed, When I inspect the configuration, Then it runs in standalone mode (single node) with `eureka.client.register-with-eureka: false` and `fetch-registry: false`
@@ -129,17 +130,16 @@ standard_ref:
 
 ---
 
-### US-104: Eureka Dashboard Accessible via Gateway
+### US-104: Eureka Dashboard Accessible via Nginx
 
 **As a** Platform Admin
-**I want** to view the Eureka dashboard through the API Gateway at `/eureka`
-**So that** I can monitor all service health from a single domain without exposing Eureka's port directly
+**I want** to view the Eureka dashboard at `discovery.panomete.com` through Nginx
+**So that** I can monitor service health from a dedicated subdomain without exposing Eureka's port directly
 
 **Acceptance Criteria:**
-- **AC-1:** Given I am authenticated as a platform admin, When I navigate to `https://panomete.local/eureka`, Then the Eureka dashboard renders correctly with all CSS, JavaScript, and images loading
+- **AC-1:** Given I navigate to `discovery.panomete.com`, When Nginx proxies the request to Eureka on port 3999, Then the Eureka dashboard renders correctly with all CSS, JavaScript, and images
 - **AC-2:** Given the dashboard is loaded, When I view the "Instances currently registered with Eureka" section, Then I see every registered service with: application name, status (UP/DOWN), and instance count
-- **AC-3:** Given an unauthenticated request to `/eureka`, When the request hits Gate, Then Gate returns 401 or redirects to the Keycloak login page
-- **AC-4:** Given the dashboard, When I click on a service link, Then I am taken to that service's info page (host, port, health URL, lease info)
+- **AC-3:** Given I click on a service link in the dashboard, When the link resolves, Then I am taken to that service's info page (host, port, health URL, lease info)
 
 **Story Points:** 2
 **Priority:** 🟡 Should Have

@@ -1,6 +1,6 @@
 ---
 document_type: Business Objectives
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "PO (Product Owner)"
 created: "2026-07-22"
@@ -18,7 +18,7 @@ tags: [business-objectives, api-gateway, spring-cloud-gateway, panomete]
 
 > **Service:** Flowero Gate (Spring Cloud Gateway)
 > **Platform:** Panomete Platform
-> **Version:** 0.1 | **Status:** Draft
+> **Version:** 0.2 | **Status:** Draft — Updated per Design Review 2026-07-22
 > **Last Updated:** 2026-07-22
 >
 > ⚠️ See [[panomete_platform/011_business_objective]] for platform-level objectives.
@@ -27,58 +27,71 @@ tags: [business-objectives, api-gateway, spring-cloud-gateway, panomete]
 
 ## 1. Service Mission
 
-> Flowero Gate is the single entry point for ALL external traffic. Its job: **route, secure, and observe** every request — so internal services never have to think about TLS, authentication, rate limiting, or which port they're exposed on.
+> Flowero Gate is the API gateway for **business services only**. Its job: **route, secure, and rate-limit** business API traffic at `api.panomete.com`. Foundation services (Guard, Discover) are routed directly by Nginx — Gate does not see that traffic.
 
-## 2. Service Objectives
+## 2. Service Context
 
-### OBJ-GATE-01: Deploy API Gateway
+| Aspect | Detail |
+|--------|--------|
+| **Service Type** | Foundation — API Gateway (business APIs only) |
+| **Technology** | Spring Cloud Gateway (Reactive, Netty-based) |
+| **Language / Stack** | Java 21 / Spring Boot 3.x / WebFlux |
+| **Port** | 8000 (internal, behind Nginx) |
+| **Domain** | `api.panomete.com` |
+| **Dependencies** | Flowero Guard (JWKS endpoint for JWT validation), Flowero Discover (route resolution), Valkey 9 (rate limiting) |
+| **Routes To** | Business services only: `/api/blog/**`, `/api/short/**`, `/api/todo/**`, `/api/ledger/**`, `/api/recipe/**`, `/api/hora/**` |
+| **Does NOT Route** | Guard (`auth.panomete.com`) and Discover (`discovery.panomete.com`) — handled by Nginx directly |
+
+## 3. Service Objectives
+
+### OBJ-GATE-01: Deploy Internal API Gateway
 
 | Field | Detail |
 |-------|--------|
-| **Statement** | Deploy a Spring Cloud Gateway that listens on ports 80/443, routes traffic based on declarative path rules, and logs every request in structured JSON format. |
-| **Measurable** | Gateway healthy within 30s. Routes defined in `application.yml`. All requests logged as JSON with method, path, status, and latency. |
-| **Priority** | 🔴 Must Have |
-| **Owner** | Dev persona |
-| **Parent Objective** | OBJ-03 (API Gateway) |
-
-### OBJ-GATE-02: Unified Routing
-
-| Field | Detail |
-|-------|--------|
-| **Statement** | Route ALL external requests — including Keycloak login (`/auth/**`), Eureka dashboard (`/eureka/**`), and business APIs (`/api/**`) — through a single domain with clean paths. |
-| **Measurable** | Keycloak, Eureka, and business services all accessible via `https://panomete.local/{path}`. Unmatched paths return 404 with JSON body. Route changes take effect on restart. |
+| **Statement** | Deploy Spring Cloud Gateway on internal port 8000, exposed at `api.panomete.com` through Nginx. |
+| **Measurable** | Gateway healthy within 30s. Routes defined in `application.yml`. All requests logged as JSON. |
 | **Priority** | 🔴 Must Have |
 | **Owner** | Dev persona |
 | **Parent Objective** | OBJ-03 |
 
-### OBJ-GATE-03: Perimeter Security
+### OBJ-GATE-02: Route Business APIs Only
 
 | Field | Detail |
 |-------|--------|
-| **Statement** | Validate JWT tokens at the Gateway before any request reaches an internal service. Forward user claims as headers. Reject expired, tampered, or missing tokens at the edge. |
-| **Measurable** | No token → 401. Valid token → forwarded with `X-User-Id`, `X-User-Roles` headers. Expired/tampered token → 401. Permit-all routes (`/auth/**`, `/eureka/**`) bypass auth. |
+| **Statement** | Route business API traffic using path-based rules. Guard and Discover are NOT routed through Gate. |
+| **Measurable** | Business services reachable via `api.panomete.com/api/{service}/**`. Unmatched paths return 404. Routes resolved from Discover (`lb://`). |
+| **Priority** | 🔴 Must Have |
+| **Owner** | Dev persona |
+| **Parent Objective** | OBJ-03 |
+
+### OBJ-GATE-03: Perimeter JWT Validation
+
+| Field | Detail |
+|-------|--------|
+| **Statement** | Validate JWT tokens locally against Keycloak JWKS on every request. Forward user claims as headers. No per-request call to Guard. |
+| **Measurable** | No token → 401. Valid token → forwarded with `X-User-Id`, `X-User-Roles`. Expired/tampered → 401. |
 | **Priority** | 🔴 Must Have |
 | **Owner** | Dev persona |
 | **Parent Objective** | OBJ-01, OBJ-03 |
 
-### OBJ-GATE-04: Dynamic Backend Resolution
+### OBJ-GATE-04: Valkey-Backed Rate Limiting
 
 | Field | Detail |
 |-------|--------|
-| **Statement** | Resolve backend service addresses from Eureka (`lb://` URIs) so routes need zero changes when services scale, move, or restart. |
-| **Measurable** | `lb://cute-gufo` resolves to actual instances. Load balanced across instances. Dead instances excluded. Cached when Eureka is down. |
-| **Priority** | 🔴 Must Have |
+| **Statement** | Use shared Valkey 9 for rate limiting so limits persist across Gate restarts. |
+| **Measurable** | Client exceeds limit → 429 with `Retry-After`. Limits survive Gate restart. Per-route configurable limits. |
+| **Priority** | 🟡 Should Have |
 | **Owner** | Dev persona |
-| **Parent Objective** | OBJ-02, OBJ-03 |
+| **Parent Objective** | OBJ-03 |
 
 ---
 
-## 3. Out of Scope
+## 4. Out of Scope
 
-- Web Application Firewall (WAF) features
-- Request/response transformation or enrichment beyond user claim headers
-- Complex routing rules (header-based, query-param-based) — MVP: path-based only
-- Custom filter chains beyond auth + rate limiting
+- TLS termination (Cloudflare handles it)
+- Routing auth/discovery traffic (Nginx handles it)
+- WAF features
+- Custom filter chains beyond JWT validation + rate limiting
 
 ---
 

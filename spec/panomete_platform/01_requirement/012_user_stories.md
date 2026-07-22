@@ -81,11 +81,9 @@ standard_ref:
 
 | Dependent Story | Depends On | Reason |
 |----------------|-----------|--------|
-| Gate US-203 (JWT Auth) | Guard US-001 (Keycloak deployed) | Gate needs Keycloak's JWKS endpoint to validate tokens |
-| Gate US-204 (Discover Resolution) | Discover US-101 (Eureka deployed) + US-102 (services registered) | Gate resolves `lb://` URIs from Eureka registry |
-| Gate US-202 (Route `/auth/**`) | Guard US-001 (Keycloak deployed) | `/auth/**` route forwards to Keycloak |
-| Discover US-104 (Dashboard via Gate) | Gate US-201 (Gateway deployed) + US-202 (routes configured) | Dashboard served through Gateway |
-| Guard US-003 (SSO) | Gate US-202 (route `/auth/**`) | Login flow goes through Gateway |
+| Gate US-203 (JWT Auth) | Guard US-001 (Keycloak deployed) | Gate needs Keycloak's JWKS endpoint to validate JWT tokens locally |
+| Gate US-204 (Discover Resolution) | Discover US-101 (Eureka deployed) + US-102 (services registered) | Gate resolves `lb://` URIs from Eureka registry for business services |
+| Guard US-003 (SSO) | Guard US-001 (Keycloak deployed) | Login flow at `auth.panomete.com` via Nginx — not through Gate |
 
 ---
 

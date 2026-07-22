@@ -52,11 +52,11 @@ standard_ref:
 
 | AC ID | Scenario | Given | When | Then | Priority |
 |-------|---------|-------|------|------|----------|
-| AC-D101a | Healthy startup | Docker Compose includes Eureka service | `docker compose up` is executed | Eureka dashboard is reachable at `https://panomete.local/eureka` within 30 seconds | 🔴 |
-| AC-D101b | Clean initial state | Eureka starts for the first time | Admin opens the dashboard at `/eureka` | Dashboard shows "No instances available" in the "Instances currently registered with Eureka" section | 🔴 |
+| AC-D101a | Healthy startup | Docker Compose includes Eureka service | `docker compose up` is executed | Eureka dashboard is reachable at `discovery.panomete.com` within 30 seconds | 🔴 |
+| AC-D101b | Clean initial state | Eureka starts for the first time | Admin opens the dashboard at `discovery.panomete.com` | Dashboard shows "No instances available" in the "Instances currently registered with Eureka" section | 🔴 |
 | AC-D101c | Fast restart | Eureka has been running; services are registered | `docker compose restart eureka` | Eureka accepts new registrations within 15 seconds; previously registered services re-register | 🔴 |
 | AC-D101d | Standalone mode | Eureka container is the only instance | Admin checks Eureka's `/eureka/apps` endpoint | `eureka.client.register-with-eureka: false` and `fetch-registry: false` — Eureka does not try to register with itself | 🔴 |
-| AC-D101e | Dashboard CSS/JS loads | Gateway routes `/eureka/**` to Eureka | Admin opens `https://panomete.local/eureka/` | Dashboard renders completely — all CSS, JavaScript, and images load correctly (no broken resources) | 🟡 |
+| AC-D101e | Dashboard CSS/JS loads | Nginx proxies `discovery.panomete.com` to Eureka on port 3999 | Admin opens `discovery.panomete.com` | Dashboard renders completely — all CSS, JavaScript, and images load correctly (no broken resources) | 🟡 |
 
 ### US-102: Service Auto-Registration
 
@@ -77,13 +77,12 @@ standard_ref:
 | AC-D103c | Service not found | Service A tries to resolve `http://nonexistent-service` | There is no service registered with that name | The call fails with a clear `IllegalStateException` or `ServiceUnavailableException` — not an `UnknownHostException` | 🔴 |
 | AC-D103d | Discovery API latency | Eureka has 10 services registered | A client queries `GET /eureka/apps` | Response is returned within 100ms at p95 | 🟡 |
 
-### US-104: Dashboard via Gateway
+### US-104: Dashboard via Nginx
 
 | AC ID | Scenario | Given | When | Then | Priority |
 |-------|---------|-------|------|------|----------|
-| AC-D104a | Authenticated access | Admin has logged in via Keycloak and has a valid JWT with admin role | Admin navigates to `https://panomete.local/eureka/` | Dashboard loads; all registered services visible with UP/DOWN status | 🟡 |
-| AC-D104b | Unauthenticated access | No authentication token present | User navigates to `https://panomete.local/eureka/` | Gateway returns 401 or redirects to Keycloak login | 🟡 |
-| AC-D104c | Service detail drill-down | Dashboard is loaded; services are listed | Admin clicks on a service link | Service detail page loads showing: instance ID, host, port, health check URL, lease expiration | 🟡 |
+| AC-D104a | Dashboard access | Nginx is configured to proxy `discovery.panomete.com` → Eureka :3999 | Admin navigates to `discovery.panomete.com` | Dashboard loads; all registered services visible with UP/DOWN status | 🟡 |
+| AC-D104b | Service detail drill-down | Dashboard is loaded; services are listed | Admin clicks on a service link | Service detail page loads showing: instance ID, host, port, health check URL, lease expiration | 🟡 |
 
 ---
 
@@ -94,8 +93,8 @@ standard_ref:
 | US-101: Deploy Eureka | 5 | 4 | 1 |
 | US-102: Auto-Registration | 5 | 4 | 1 |
 | US-103: Discovery by Name | 4 | 3 | 1 |
-| US-104: Dashboard via Gate | 3 | 0 | 3 |
-| **Total** | **17** | **11** | **6** |
+| US-104: Dashboard via Nginx | 2 | 0 | 2 |
+| **Total** | **16** | **11** | **5** |
 
 ---
 

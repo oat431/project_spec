@@ -1,6 +1,6 @@
 ---
 document_type: Business Objectives
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "PO (Product Owner)"
 created: "2026-07-22"
@@ -18,7 +18,7 @@ tags: [business-objectives, keycloak, oauth2, iam, panomete]
 
 > **Service:** Flowero Guard (Keycloak IAM)
 > **Platform:** Panomete Platform
-> **Version:** 0.1 | **Status:** Draft
+> **Version:** 0.2 | **Status:** Draft — Updated per Design Review 2026-07-22
 > **Last Updated:** 2026-07-22
 >
 > ⚠️ See [[panomete_platform/011_business_objective]] for platform-level objectives.
@@ -27,48 +27,60 @@ tags: [business-objectives, keycloak, oauth2, iam, panomete]
 
 ## 1. Service Mission
 
-> Flowero Guard is the identity provider for the Panomete Platform. Its sole job: **issue, validate, and manage authentication tokens** so that no other service ever has to implement login, user management, or token validation from scratch.
+> Flowero Guard IS Keycloak — the identity provider for the Panomete Platform. Its job: **issue OAuth2/OIDC tokens** so that Gate and business services can validate them locally. No separate wrapper service. No per-request network calls for token validation.
 
-## 2. Service Objectives
+## 2. Service Context
 
-### OBJ-GUARD-01: Deploy Production-Ready Keycloak
+| Aspect | Detail |
+|--------|--------|
+| **Service Type** | Foundation — Identity Provider |
+| **Technology** | Keycloak (Docker) using shared PostgreSQL 18 |
+| **Port** | 8001 (internal) |
+| **Domain** | `auth.panomete.com` (via Nginx) |
+| **Dependencies** | Shared PostgreSQL 18 |
+| **Consumed By** | Gate (JWKS endpoint), business services (token issuance) |
+| **Related Services** | Nginx (routes `auth.panomete.com` → :8001), Flowero Discover (registers health) |
+
+## 3. Service Objectives
+
+### OBJ-GUARD-01: Deploy Keycloak with Realm-as-Code
 
 | Field | Detail |
 |-------|--------|
-| **Statement** | Deploy a Keycloak instance with PostgreSQL backend, a pre-configured `panomete` realm, and realm-as-code (JSON export) so the entire IAM configuration is version-controlled and reproducible. |
-| **Measurable** | `docker compose up` → Keycloak healthy within 60s. Realm, roles, and clients imported from file. Data survives restart. |
-| **Priority** | 🔴 Must Have |
-| **Owner** | Dev persona |
-| **Parent Objective** | OBJ-01 (Centralized Authentication) |
-
-### OBJ-GUARD-02: Provide OAuth2/OIDC Standard Compliance
-
-| Field | Detail |
-|-------|--------|
-| **Statement** | Expose standard OAuth2 endpoints (authorize, token, introspection, userinfo, JWKS) so any OIDC-compliant client — Java, Go, TypeScript, or otherwise — can authenticate. |
-| **Measurable** | Authorization code flow, client credentials flow, token refresh, and introspection all pass OIDC conformance tests. JWKS endpoint publicly accessible. |
+| **Statement** | Deploy Keycloak using shared PostgreSQL 18, with a pre-configured `panomete` realm imported from a version-controlled JSON file. |
+| **Measurable** | `docker compose up` → Keycloak healthy within 60s. Realm, roles, and clients imported from file. Data survives restart. Dashboard at `auth.panomete.com`. |
 | **Priority** | 🔴 Must Have |
 | **Owner** | Dev persona |
 | **Parent Objective** | OBJ-01 |
 
-### OBJ-GUARD-03: Enable SSO Across All Services
+### OBJ-GUARD-02: OAuth2/OIDC Compliance
 
 | Field | Detail |
 |-------|--------|
-| **Statement** | Once a user logs into any platform service, they are authenticated for all platform services without re-entering credentials. Logout from any service terminates all sessions. |
-| **Measurable** | Login to Service A → navigate to Service B → no login prompt. Logout from Service B → Service A also requires re-login. |
+| **Statement** | Expose standard OAuth2 endpoints (authorize, token, introspection, userinfo, JWKS) so Gate and business services can validate tokens locally. |
+| **Measurable** | JWKS endpoint publicly accessible. Gate validates tokens locally with zero per-request network calls to Guard. Authorization code + client credentials flows functional. |
+| **Priority** | 🔴 Must Have |
+| **Owner** | Dev persona |
+| **Parent Objective** | OBJ-01 |
+
+### OBJ-GUARD-03: SSO Across All Services
+
+| Field | Detail |
+|-------|--------|
+| **Statement** | Login once at `auth.panomete.com`. All services share the session. Logout terminates all sessions. |
+| **Measurable** | Login → navigate to any service → no re-prompt. Logout → all services require re-auth. |
 | **Priority** | 🔴 Must Have |
 | **Owner** | Dev persona |
 | **Parent Objective** | OBJ-01 |
 
 ---
 
-## 3. Out of Scope (for this service)
+## 4. Out of Scope
 
-- User registration / self-service sign-up (MVP: admin creates users manually)
+- User self-registration (MVP: admin creates users manually)
 - Social login (Google, GitHub)
-- Multi-factor authentication (TOTP/SMS)
-- LDAP / Active Directory federation
+- MFA (TOTP/SMS)
+- LDAP federation
 
 ---
 

@@ -126,7 +126,7 @@ Vision: Production-grade, self-hosted platform that replaces SaaS dependencies
 
 | ID | Objective | Specific | Measurable | Achievable | Relevant | Time-Bound | Priority |
 |----|-----------|----------|-----------|-----------|----------|-----------|----------|
-| OBJ-01 | Centralized Authentication (Flowero Guard) | Deploy a Spring Boot OAuth2 Resource Server that validates JWT tokens from Keycloak and provides a standard auth middleware for all services | All 3 foundation services + 1 canary business service authenticate via Guard | Spring Security + OAuth2 has mature Keycloak integration; well-documented | Without this, every service implements its own auth — the core platform value prop | After Guard, Discover, Gate are all deployed and talking | 🔴 |
+| OBJ-01 | Centralized Authentication (Flowero Guard) | Deploy Keycloak as the platform's identity provider (Flowero Guard). Gate and business services validate JWT tokens locally against Keycloak's JWKS endpoint. | All foundation services + 1 canary business service issue and validate tokens through Guard. SSO works across all services. | Keycloak is the industry-standard OSS IAM. Spring Security OAuth2 Resource Server validates JWT locally — no network call per request. | Without this, every service implements its own auth — the core platform value prop | After Guard, Discover, Gate are all deployed and talking | 🔴 |
 | OBJ-02 | Service Discovery & Registration (Flowero Discover) | Deploy a service registry where all microservices register on startup and discover each other dynamically | Services register within 30s of startup; discovery queries resolve in <100ms | Spring Cloud Netflix Eureka or Consul are well-established | Enables dynamic service mesh without hardcoded URLs | After Guard and Discover are both healthy | 🔴 |
 | OBJ-03 | API Gateway & Routing (Flowero Gate) | Deploy a Spring Cloud Gateway that routes external traffic to internal services, enforces auth via Guard, and provides rate limiting | All external requests route through Gate with <50ms added latency at p95 | Spring Cloud Gateway is production-proven and integrates natively with Guard (Spring Security) and Discover | Single entry point; consistent security, logging, and routing | After all foundation services are registered in Discover | 🔴 |
 | OBJ-04 | Developer Onboarding Experience | Onboard 1 business service (Fluffy Mouton — URL Shortener) to the platform, proving the foundation actually delivers on "reusable" | A new developer (or AI persona) can onboard a service in <2 hours using documented steps | Templates, conventions, and clear docs reduce friction; validated via canary service | The platform's only value is making service development faster — prove it | After foundation is stable and documented | 🟡 |
@@ -138,16 +138,16 @@ Vision: Production-grade, self-hosted platform that replaces SaaS dependencies
 
 | Field | Detail |
 |-------|--------|
-| **Statement** | Build and deploy Flowero Guard — a Spring Boot OAuth2 Resource Server that validates JWT tokens issued by Keycloak and provides a standardized authentication layer for all Panomete microservices. |
-| **Specific** | Deploy Keycloak instance + Flowero Guard service. Guard validates tokens, extracts user claims, and passes them downstream via headers. Any service behind Gate inherits auth automatically. |
-| **Measurable** | All foundation services (Guard, Discover, Gate) + 1 canary business service authenticate through Guard. Unauthenticated requests to protected endpoints return 401. |
-| **Achievable** | Spring Security 6 + OAuth2 Resource Server has first-class Keycloak support. Keycloak runs as a Docker container. Configuration is well-documented with numerous reference implementations. |
+| **Statement** | Deploy Flowero Guard — a Keycloak instance that serves as the centralized identity provider for the Panomete Platform. Guard issues OAuth2/OIDC tokens. Gate and business services validate tokens locally against Guard's JWKS endpoint. |
+| **Specific** | Deploy Keycloak as a Docker container using shared PostgreSQL 18. Configure a `panomete` realm with standard roles and OAuth2 clients. Expose Keycloak at `auth.panomete.com` through Nginx. Services validate JWT signatures locally — no network call to Guard per request. |
+| **Measurable** | Guard issues valid JWT tokens with correct claims. Gate validates tokens locally against JWKS. Gate returns 401 for invalid/missing tokens and forwards user claims as headers for valid tokens. SSO works across all services. |
+| **Achievable** | Keycloak is the industry-standard OSS IAM. Spring Security OAuth2 Resource Server validates JWT locally with zero network overhead per request. Configuration is well-documented. |
 | **Relevant** | Centralized auth is the #1 value proposition of the platform. Without it, every service duplicates auth logic and the "platform" has no reason to exist. |
-| **Time-Bound** | No hard deadline. Guard is the first foundation service to build; Gate and Discover depend on it. |
+| **Time-Bound** | No hard deadline. Guard is the first foundation service to build; Gate depends on it for JWKS endpoint. |
 | **Owner** | Dev persona (to be implemented by) |
 | **Priority** | 🔴 Must Have |
 | **Baseline** | No shared authentication exists. Current services (if any) handle auth independently or not at all. |
-| **Target** | Single Sign-On across all platform services via Keycloak + Flowero Guard. |
+| **Target** | Single Sign-On across all platform services via Keycloak (Flowero Guard). Services validate JWT locally; no per-request dependency on Guard. |
 | **Unit** | Boolean — all services use centralized auth (yes/no) |
 | **Source** | Platform architect (Self) — identified as foundational requirement |
 
@@ -160,7 +160,7 @@ Vision: Production-grade, self-hosted platform that replaces SaaS dependencies
 | **Measurable** | Services register within 30 seconds of startup. Service discovery queries resolve in <100ms at p95. Stale registrations are evicted within 90 seconds of a service going down. |
 | **Achievable** | Spring Cloud Netflix Eureka provides out-of-the-box service registration and discovery with minimal configuration. Consul offers a richer feature set if needed. |
 | **Relevant** | Dynamic service discovery is essential for a microservice platform. Without it, services must be hardcoded with peer addresses — brittle and not production-grade. |
-| **Time-Bound** | Deploy after Guard is stable. All three foundation services must register with Discover. |
+| **Time-Bound** | Deploy after Guard is stable. All three foundation services must register with Discover. Discover dashboard accessible at `discovery.panomete.com` through Nginx. |
 | **Owner** | Dev persona |
 | **Priority** | 🔴 Must Have |
 | **Baseline** | No service discovery exists. Services communicate via hardcoded URLs or not at all. |
@@ -172,16 +172,16 @@ Vision: Production-grade, self-hosted platform that replaces SaaS dependencies
 
 | Field | Detail |
 |--------|-------|
-| **Statement** | Deploy Flowero Gate — a Spring Cloud Gateway that serves as the single entry point for all external traffic, routing requests to internal services based on path/header rules, enforcing authentication via Flowero Guard, and providing rate limiting. |
-| **Specific** | Gate listens on ports 80/443. Routes defined in configuration (e.g., `/api/blog/**` → `cute-gufo`, `/api/short/**` → `fluffy-mouton`). Gate validates JWT tokens with Guard before forwarding. Rate limiting per client IP. |
-| **Measurable** | All external API traffic flows through Gate. P95 added latency <50ms. Gate correctly returns 401 for unauthenticated requests, 429 for rate-limited clients. |
-| **Achievable** | Spring Cloud Gateway is the standard Spring ecosystem API gateway. Integrates natively with Spring Security (Guard) and Spring Cloud Discovery (Discover). |
-| **Relevant** | An API gateway is the backbone of any production microservice platform — central entry point for security, routing, rate limiting, and observability. |
-| **Time-Bound** | Deploy after Guard and Discover are stable. Must route traffic to Discover-registered services. |
+| **Statement** | Deploy Flowero Gate — a Spring Cloud Gateway on internal port 8000, exposed through Nginx at `api.panomete.com`. Gate routes business API traffic to internal services, validates JWT tokens locally, and enforces rate limiting backed by shared Valkey 9. |
+| **Specific** | Gate listens on port 8000 (internal, behind Nginx). Routes defined for business APIs only: `/api/blog/**`, `/api/short/**`, `/api/todo/**`, etc. Gate validates JWT signatures against Keycloak's JWKS endpoint on startup. Rate limiting uses shared Valkey 9 instance for persistence. |
+| **Measurable** | All business API traffic at `api.panomete.com` flows through Gate. P95 added latency <50ms. Gate correctly returns 401 for unauthenticated requests, 429 for rate-limited clients. |
+| **Achievable** | Spring Cloud Gateway is the standard Spring ecosystem API gateway. JWT validation is local (no network call per request). Valkey integration via Spring Cloud Gateway RequestRateLimiter. |
+| **Relevant** | Gate provides unified routing, security, and rate limiting for all business APIs. Foundation services (Guard, Discover) are routed directly by Nginx — Gate focuses on the API surface only. |
+| **Time-Bound** | Deploy after Guard and Discover are stable. Must resolve routes through Discover for business services. |
 | **Owner** | Dev persona |
 | **Priority** | 🔴 Must Have |
-| **Baseline** | No API gateway exists. Services would be exposed directly on different ports with no unified routing or security. |
-| **Target** | Single entry point for all platform services. All routes defined in configuration, resolved through Discover. |
+| **Baseline** | No API gateway exists. Business services would be exposed directly on different ports with no unified routing or security. |
+| **Target** | All business API traffic routed through `api.panomete.com`. Routes resolved dynamically through Discover. Valkey-backed rate limiting. |
 | **Unit** | Boolean + latency (ms p95) |
 | **Source** | Platform architect (Self) |
 
@@ -211,7 +211,7 @@ Vision: Production-grade, self-hosted platform that replaces SaaS dependencies
 | **Measurable** | Health endpoint returns 200 with UP status for all components within 1 second. All log output is valid JSON with timestamp, level, service, and trace ID fields. At least CPU, memory, request count, and error rate metrics are visible. |
 | **Achievable** | Spring Boot Actuator provides health/metrics with zero code. Logback JSON encoder is a dependency add. Loki/Promtail is a Docker Compose service add. |
 | **Relevant** | Observability is the difference between a portfolio piece and a real production system. Shows operational maturity to reviewers. |
-| **Time-Bound** | After all foundation services are running. Observability can be added incrementally. |
+| **Time-Bound** | Phase 2 — after foundation services are stable. Observability can be added incrementally. Uptime Kuma handles basic infra monitoring in Phase 1. |
 | **Owner** | Dev persona + DevOps persona |
 | **Priority** | 🟡 Should Have |
 | **Baseline** | No structured logging or health endpoints exist. Debugging requires SSH + tail -f. |
@@ -422,21 +422,24 @@ flowchart LR
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| Edge Proxy | Nginx | Subdomain-based routing to internal services. Already running in production. |
+| TLS Termination | Cloudflare Tunnel | Handles HTTPS termination + DDoS protection at the edge. Already running in production. |
 | Foundation language | Spring Boot (Java) | Portfolio piece — demonstrates enterprise Java ecosystem competency. Spring Cloud provides native Gateway, Security, Discovery integrations. |
-| Authentication | Keycloak | Production-grade open-source IAM. OAuth2/OIDC compliant. Already identified in README. |
-| Service Discovery | Spring Cloud Netflix Eureka (primary) / Consul (alternative) | Eureka is the path of least resistance with Spring Cloud. Consul considered if richer feature set needed. |
-| API Gateway | Spring Cloud Gateway | Native Spring ecosystem fit. Reactive, non-blocking. Integrates with Spring Security and Discovery. |
+| Authentication | Keycloak (Flowero Guard) | Production-grade open-source IAM. OAuth2/OIDC compliant. Uses shared PostgreSQL 18. Exposed at `auth.panomete.com` via Nginx. |
+| Service Discovery | Spring Cloud Netflix Eureka | Simplest path with Spring Cloud. Standalone mode. Dashboard at `discovery.panomete.com` (:3999 FE, :8999 BE). |
+| API Gateway | Spring Cloud Gateway | Reactive, non-blocking. Routes business APIs only at `api.panomete.com` (:8000 internal). JWT validation is local (JWKS). |
+| Rate Limiting | Valkey 9 (shared instance) | Replaces in-memory rate limiting. Limits persist across Gate restarts. Already running in production. |
 | Deployment | Docker Compose → Kubernetes (k3s) | Compose for simplicity now; design for K8s portability. |
-| Observability | Spring Boot Actuator + Loki + Prometheus + Grafana | Standard Spring Boot observability stack. Lightweight enough for homelab. |
+| Observability | Phase 2: Actuator + Loki + Prometheus + Grafana | Deferred until foundation is stable. Uptime Kuma for infra-level monitoring in the interim. |
 
 ### Appendix C: Glossary
 
 | Term | Definition |
 |------|-----------|
 | Panomete Platform | The overall microservice platform encompassing foundation services and business services |
-| Flowero Guard | OAuth2 Resource Server — validates JWT tokens from Keycloak |
+| Flowero Guard | Keycloak IAM — issues OAuth2/OIDC tokens at `auth.panomete.com` |
 | Flowero Discover | Service registry — enables dynamic service-to-service discovery |
-| Flowero Gate | API Gateway — single entry point for all external traffic |
+| Flowero Gate | API Gateway — routes business APIs at `api.panomete.com`, validates JWT, enforces rate limits |
 | Canary Service | The first business service onboarded to prove the platform works (Fluffy Mouton) |
 | SMART | Specific, Measurable, Achievable, Relevant, Time-bound |
 | KPI | Key Performance Indicator |

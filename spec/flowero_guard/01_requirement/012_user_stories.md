@@ -53,10 +53,11 @@ standard_ref:
 | **Service Type** | Foundation — Identity Provider |
 | **Technology** | Keycloak (Docker) with PostgreSQL backend |
 | **Language / Stack** | Java (Keycloak is a Java application) |
-| **Ports** | 8080 (internal), exposed through Flowero Gate |
-| **Dependencies** | PostgreSQL database |
-| **Consumed By** | All platform services (via OAuth2/OIDC) |
-| **Related Services** | Flowero Gate (routes auth traffic), Flowero Discover (registers Keycloak health) |
+| **Port** | 8001 (internal) |
+| **Domain** | `auth.panomete.com` (via Nginx) |
+| **Dependencies** | Shared PostgreSQL 18 |
+| **Consumed By** | Gate (JWKS endpoint), business services (token issuance) |
+| **Related Services** | Nginx (routes `auth.panomete.com` → :8001), Flowero Discover (registers health) |
 
 ## 3. Personas
 
@@ -77,7 +78,7 @@ standard_ref:
 **So that** all microservices have a single, production-ready identity provider from day one
 
 **Acceptance Criteria:**
-- **AC-1:** Given `docker compose up`, When all containers start, Then Keycloak is accessible at `https://panomete.local/auth` (via Gate) within 60 seconds
+- **AC-1:** Given `docker compose up`, When all containers start, Then Keycloak is accessible at `auth.panomete.com` (via Nginx) within 60 seconds
 - **AC-2:** Given Keycloak is running, When I access the admin console, Then a `panomete` realm exists with pre-configured roles (`admin`, `user`, `viewer`) and client scopes
 - **AC-3:** Given the Keycloak container, When I inspect configuration, Then realm settings are imported from a version-controlled JSON export file
 - **AC-4:** Given Keycloak restarts, When it comes back up, Then all clients, users, roles, and sessions are preserved (persistent PostgreSQL backend)
@@ -117,7 +118,7 @@ standard_ref:
 **So that** I have a seamless experience across all Panomete services
 
 **Acceptance Criteria:**
-- **AC-1:** Given an unauthenticated user, When they access any protected service through Gate, Then they are redirected to the Keycloak login page
+- **AC-1:** Given an unauthenticated user, When they access a protected API at `api.panomete.com`, Then Gate returns 401. The client/frontend redirects the user to `auth.panomete.com` for login
 - **AC-2:** Given valid credentials, When the user submits the login form, Then Keycloak returns a JWT access token (5 min expiry) and a refresh token (30 min expiry)
 - **AC-3:** Given an expired access token, When the service receives it, Then the service returns 401 and the client uses the refresh token to obtain a new access token silently
 - **AC-4:** Given the user logged into Service A, When they navigate to Service B, Then they are NOT prompted to log in again (SSO via Keycloak session cookie)
