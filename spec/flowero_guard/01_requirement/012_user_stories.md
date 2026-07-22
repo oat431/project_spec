@@ -1,6 +1,6 @@
 ---
 document_type: User Stories
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "PO (Product Owner)"
 created: "2026-07-22"
@@ -39,6 +39,7 @@ standard_ref:
 | Version | Date | Author | Change Description |
 |---------|------|--------|--------------------|
 | 0.1 | 2026-07-22 | PO | Initial draft — extracted from platform-level stories |
+| 0.2 | 2026-07-22 | PO | Design review update — port 8001, auth.panomete.com via Nginx, shared PostgreSQL 18, Gate does NOT route auth traffic (JWT validation is local at Gate) |
 
 ---
 
@@ -213,7 +214,7 @@ standard_ref:
 | [[panomete_platform/011_business_objective]] | Platform-level objectives (OBJ-01) |
 | [[flowero_guard/011_business_objective]] | Service-level objectives |
 | [[flowero_guard/013_acceptance_criteria]] | BDD acceptance criteria for all stories |
-| [[flowero_gate/012_user_stories]] | Gate routes auth traffic through Guard |
+| [[flowero_gate/012_user_stories]] | Gate validates JWT locally against Guard's JWKS (no auth traffic proxied through Gate) |
 | [[flowero_discover/012_user_stories]] | Guard registers with Discover for health monitoring |
 
 ---

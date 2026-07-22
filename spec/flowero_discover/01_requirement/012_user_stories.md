@@ -1,6 +1,6 @@
 ---
 document_type: User Stories
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "PO (Product Owner)"
 created: "2026-07-22"
@@ -39,6 +39,7 @@ standard_ref:
 | Version | Date | Author | Change Description |
 |---------|------|--------|--------------------|
 | 0.1 | 2026-07-22 | PO | Initial draft — extracted from platform-level stories |
+| 0.2 | 2026-07-22 | PO | Design review update — ports 8999/3999, discovery.panomete.com via Nginx, US-104 rewritten (dashboard via Nginx, not Gate) |
 
 ---
 
@@ -156,7 +157,7 @@ standard_ref:
 | US-101 | Deploy Eureka Server | 3 | 🔴 | M1 |
 | US-102 | Service Auto-Registration | 3 | 🔴 | M2 |
 | US-103 | Service Discovery by Name | 3 | 🔴 | M2 |
-| US-104 | Dashboard via Gateway | 2 | 🟡 | M3 |
+| US-104 | Dashboard via Nginx | 2 | 🟡 | M3 |
 | **Total** | | **11** | | |
 
 ---

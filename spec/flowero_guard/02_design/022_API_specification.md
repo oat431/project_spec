@@ -1,6 +1,6 @@
 ---
 document_type: API Specification
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "Dev / SA Persona"
 created: "2026-07-22"
@@ -12,8 +12,6 @@ tech_lead: "Dev / SA Persona"
 classification: "Internal"
 tags: [api-specification, keycloak, oauth2, oidc, panomete]
 standard_ref:
-  - SWEBOK v4 — Design
-  - OpenAPI Specification 3.0
   - OAuth 2.0 (RFC 6749)
   - OpenID Connect Core 1.0
 ---
@@ -22,14 +20,14 @@ standard_ref:
 
 > **Service:** Flowero Guard (Keycloak IAM)
 > **Platform:** Panomete Platform
-> **Version:** 0.1 | **Status:** Draft
+> **Version:** 0.2 | **Status:** Draft — Updated per Design Review 2026-07-22
 > **Last Updated:** 2026-07-22
 
 ---
 
 ## 1. Purpose
 
-> Flowero Guard is a **Keycloak instance** — its APIs are the standard OAuth2/OIDC endpoints defined by RFC 6749 and OpenID Connect. This document catalogs the relevant endpoints the Panomete Platform consumes. This is NOT a custom API — it's Keycloak's built-in REST API.
+> Flowero Guard is a **Keycloak instance** — its APIs are the standard OAuth2/OIDC endpoints. This document catalogues the endpoints consumed by the Panomete Platform. Guard is accessed directly at `auth.panomete.com` through Nginx — NOT proxied through Gate.
 
 ---
 
@@ -37,40 +35,33 @@ standard_ref:
 
 | Field | Detail |
 |-------|--------|
-| **Base URL (internal)** | `http://flowero-guard:8080` |
-| **Base URL (external)** | `https://panomete.local/auth` (via Flowero Gate) |
+| **Internal Address** | `http://flowero-guard:8001` |
+| **External Address** | `https://auth.panomete.com` (via Nginx → Cloudflare) |
 | **Realm** | `panomete` |
-| **Protocol** | HTTPS (external), HTTP (internal Docker network) |
+| **Protocol** | HTTPS (external via Cloudflare), HTTP (internal Docker network) |
 | **Format** | JSON |
-| **Authentication** | Client credentials (for introspection/admin endpoints) or public (for login/token endpoints) |
-| **Discovery** | `GET /auth/realms/panomete/.well-known/openid-configuration` |
+| **Discovery** | `GET /.well-known/openid-configuration` |
 
 ---
 
-## 3. OAuth2 / OIDC Endpoints
-
-> All paths are relative to the realm base: `/auth/realms/panomete/protocol/openid-connect/`
+## 3. Key Endpoints
 
 ### 3.1 OpenID Connect Discovery
 
 #### GET /.well-known/openid-configuration
 
-| Field | Detail |
-|-------|--------|
-| **Description** | Returns the OIDC discovery document — all endpoint URLs, supported grant types, scopes, and JWKS URI |
-| **Auth** | None (public) |
+> Public. Returns all OIDC endpoint URLs.
 
 **Response (200):**
 ```json
 {
-  "issuer": "https://panomete.local/auth/realms/panomete",
-  "authorization_endpoint": "https://panomete.local/auth/realms/panomete/protocol/openid-connect/auth",
-  "token_endpoint": "https://panomete.local/auth/realms/panomete/protocol/openid-connect/token",
-  "introspection_endpoint": "https://panomete.local/auth/realms/panomete/protocol/openid-connect/token/introspect",
-  "userinfo_endpoint": "https://panomete.local/auth/realms/panomete/protocol/openid-connect/userinfo",
-  "end_session_endpoint": "https://panomete.local/auth/realms/panomete/protocol/openid-connect/logout",
-  "jwks_uri": "https://panomete.local/auth/realms/panomete/protocol/openid-connect/certs",
-  "grant_types_supported": ["authorization_code", "client_credentials", "refresh_token"]
+  "issuer": "https://auth.panomete.com/realms/panomete",
+  "authorization_endpoint": "https://auth.panomete.com/realms/panomete/protocol/openid-connect/auth",
+  "token_endpoint": "https://auth.panomete.com/realms/panomete/protocol/openid-connect/token",
+  "jwks_uri": "https://auth.panomete.com/realms/panomete/protocol/openid-connect/certs",
+  "introspection_endpoint": "https://auth.panomete.com/realms/panomete/protocol/openid-connect/token/introspect",
+  "userinfo_endpoint": "https://auth.panomete.com/realms/panomete/protocol/openid-connect/userinfo",
+  "end_session_endpoint": "https://auth.panomete.com/realms/panomete/protocol/openid-connect/logout"
 }
 ```
 
@@ -80,24 +71,15 @@ standard_ref:
 
 #### GET /auth
 
-> Initiates the Authorization Code flow. Redirects user to Keycloak login page.
-
-| Field | Detail |
-|-------|--------|
-| **Description** | Start the OAuth2 Authorization Code flow |
-| **Auth** | None (redirects to login) |
-
-**Query Parameters:**
+> Initiates Authorization Code flow. Redirects user to Keycloak login.
 
 | Param | Required | Description |
 |-------|:---:|-------------|
 | `response_type` | Yes | `code` |
-| `client_id` | Yes | OAuth2 client ID (e.g., `fluffy-mouton`) |
-| `redirect_uri` | Yes | Post-login redirect URL |
-| `scope` | No | Space-separated scopes (default: `openid profile email`) |
-| `state` | No | Opaque value returned in redirect (CSRF protection) |
-
-**Response:** 302 redirect to Keycloak login page.
+| `client_id` | Yes | OAuth2 client ID |
+| `redirect_uri` | Yes | Post-login redirect |
+| `scope` | No | `openid profile email` |
+| `state` | No | CSRF protection |
 
 ---
 
@@ -105,42 +87,15 @@ standard_ref:
 
 #### POST /token
 
-> Exchanges an authorization code (or refresh token, or client credentials) for tokens.
+> Exchanges authorization codes, refresh tokens, or client credentials for tokens.
 
-| Field | Detail |
-|-------|--------|
-| **Description** | Obtain access, refresh, and ID tokens |
-| **Content-Type** | `application/x-www-form-urlencoded` |
+**Grant Types:**
 
-**Grant Types Supported:**
-
-| Grant Type | `grant_type` value | Auth Required | Use Case |
-|-----------|-------------------|:---:|---|
-| Authorization Code | `authorization_code` | No (code is the credential) | Browser-based login |
-| Refresh Token | `refresh_token` | No (refresh token is the credential) | Silent token renewal |
-| Client Credentials | `client_credentials` | Yes (client ID + secret) | Service-to-service calls |
-
-**Request — Authorization Code:**
-```
-POST /auth/realms/panomete/protocol/openid-connect/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=authorization_code
-&code={authorization_code}
-&redirect_uri={same_as_auth_request}
-&client_id={client_id}
-&client_secret={client_secret}
-```
-
-**Request — Client Credentials:**
-```
-POST /auth/realms/panomete/protocol/openid-connect/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials
-&client_id={client_id}
-&client_secret={client_secret}
-```
+| Grant | `grant_type` | Auth Required | Use Case |
+|-------|-------------|:---:|---|
+| Authorization Code | `authorization_code` | No | Browser login |
+| Refresh Token | `refresh_token` | No | Silent renewal |
+| Client Credentials | `client_credentials` | Yes (client ID+secret) | S2S calls |
 
 **Response (200):**
 ```json
@@ -150,216 +105,94 @@ grant_type=client_credentials
   "refresh_expires_in": 1800,
   "refresh_token": "eyJhbG...",
   "token_type": "Bearer",
-  "id_token": "eyJhbG...",
-  "session_state": "...",
   "scope": "openid profile email"
 }
 ```
 
-**Error (401):**
-```json
-{
-  "error": "invalid_client",
-  "error_description": "Invalid client credentials"
-}
-```
-
 ---
 
-### 3.4 Token Introspection Endpoint
-
-#### POST /token/introspect
-
-> Validates a token and returns its claims. Used by non-Java services that cannot validate JWTs locally.
-
-| Field | Detail |
-|-------|--------|
-| **Description** | Introspect an access or refresh token |
-| **Auth** | Client credentials (Basic Auth — client ID:secret) |
-
-**Request:**
-```
-POST /auth/realms/panomete/protocol/openid-connect/token/introspect
-Content-Type: application/x-www-form-urlencoded
-Authorization: Basic base64(client_id:client_secret)
-
-token={access_token_or_refresh_token}
-```
-
-**Response — Active Token (200):**
-```json
-{
-  "active": true,
-  "sub": "user-uuid",
-  "username": "alice",
-  "email": "alice@panomete.local",
-  "realm_access": {
-    "roles": ["admin", "user"]
-  },
-  "exp": 1750000000,
-  "iat": 1749999700,
-  "iss": "https://panomete.local/auth/realms/panomete"
-}
-```
-
-**Response — Inactive Token (200):**
-```json
-{
-  "active": false
-}
-```
-
----
-
-### 3.5 UserInfo Endpoint
-
-#### GET /userinfo
-
-> Returns claims about the authenticated user.
-
-| Field | Detail |
-|-------|--------|
-| **Description** | Get current user's profile claims |
-| **Auth** | Bearer JWT (access token) |
-
-**Request:**
-```
-GET /auth/realms/panomete/protocol/openid-connect/userinfo
-Authorization: Bearer {access_token}
-```
-
-**Response (200):**
-```json
-{
-  "sub": "user-uuid",
-  "email_verified": true,
-  "name": "Alice",
-  "preferred_username": "alice",
-  "given_name": "Alice",
-  "email": "alice@panomete.local"
-}
-```
-
----
-
-### 3.6 JWKS (JSON Web Key Set) Endpoint
+### 3.4 JWKS Endpoint (Critical)
 
 #### GET /certs
 
-> Returns the public keys used to sign JWTs. **This is the most critical endpoint for the platform** — Flowero Gate downloads this at startup to validate JWT signatures locally.
+> **Most critical endpoint for the platform.** Gate downloads this at startup to cache Keycloak's public key for local JWT validation. Zero per-request calls to Guard for auth.
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Get public keys for JWT signature verification |
 | **Auth** | None (public) |
 
 **Response (200):**
 ```json
 {
-  "keys": [
-    {
-      "kid": "abc123",
-      "kty": "RSA",
-      "alg": "RS256",
-      "use": "sig",
-      "n": "...",
-      "e": "AQAB"
-    }
-  ]
+  "keys": [{
+    "kid": "abc123", "kty": "RSA", "alg": "RS256",
+    "use": "sig", "n": "...", "e": "AQAB"
+  }]
 }
 ```
 
 ---
 
-### 3.7 Logout Endpoint
+### 3.5 Token Introspection
+
+#### POST /token/introspect
+
+> Validates a token and returns claims. Used by non-Java services.
+
+**Request:** `POST` with `Authorization: Basic base64(client_id:client_secret)` and `token={token}`
+
+**Response — Active:** `{"active": true, "sub": "...", "realm_access": {"roles": ["admin"]}, ...}`
+**Response — Inactive:** `{"active": false}`
+
+---
+
+### 3.6 UserInfo
+
+#### GET /userinfo
+
+> Returns claims about the authenticated user. Auth: Bearer JWT.
+
+### 3.7 Logout
 
 #### GET /logout
 
-> Terminates the Keycloak session. After logout, all SSO sessions across services are invalidated.
-
-| Field | Detail |
-|-------|--------|
-| **Description** | End user session (SSO logout) |
-| **Auth** | None (requires session cookie or `id_token_hint`) |
-
-**Query Parameters:**
-
-| Param | Required | Description |
-|-------|:---:|-------------|
-| `id_token_hint` | No | ID token — identifies the session to terminate |
-| `post_logout_redirect_uri` | No | Where to redirect after logout |
+> Terminates SSO session. `?id_token_hint={id_token}&post_logout_redirect_uri={url}`
 
 ---
 
-## 4. Error Codes
-
-| HTTP Status | Error Code | Description |
-|:---:|------|-------------|
-| 400 | `invalid_grant` | Invalid authorization code or refresh token |
-| 400 | `invalid_request` | Missing required parameters |
-| 401 | `invalid_client` | Invalid client ID or secret |
-| 401 | `invalid_token` | Token is expired, tampered, or from wrong issuer |
-| 403 | `unauthorized_client` | Client not authorized for this grant type |
-| 500 | `server_error` | Keycloak internal error |
-
----
-
-## 5. Token Claims (JWT Payload)
-
-> The JWT access token issued by Keycloak contains these claims:
+## 4. Token Claims (JWT Payload)
 
 | Claim | Type | Description |
 |-------|------|-------------|
-| `sub` | UUID | User's unique ID (Keycloak internal UUID) |
+| `sub` | UUID | User's Keycloak UUID |
 | `preferred_username` | string | Username |
-| `email` | string | Email address |
-| `email_verified` | boolean | Whether email is verified |
-| `realm_access.roles` | string[] | Realm-level roles (`admin`, `user`, `viewer`) |
-| `resource_access.{client_id}.roles` | string[] | Client-level roles |
-| `iss` | string | Issuer URL |
-| `exp` | number | Expiration timestamp (Unix seconds) |
-| `iat` | number | Issued-at timestamp |
-| `aud` | string | Audience (client ID) |
-
-**Example decoded JWT payload:**
-```json
-{
-  "sub": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "preferred_username": "alice",
-  "email": "alice@panomete.local",
-  "email_verified": true,
-  "realm_access": {
-    "roles": ["admin", "user"]
-  },
-  "iss": "https://panomete.local/auth/realms/panomete",
-  "exp": 1750000000,
-  "iat": 1749999700,
-  "aud": "account"
-}
-```
+| `email` | string | Email |
+| `realm_access.roles` | string[] | Roles: `admin`, `user`, `viewer` |
+| `iss` | string | `https://auth.panomete.com/realms/panomete` |
+| `exp` | number | Expiration (Unix seconds) |
+| `iat` | number | Issued-at |
 
 ---
 
-## 6. Flowero Gate — How It Consumes Guard
+## 5. How Gate Consumes Guard
 
-> The Gateway does NOT call Guard's introspect endpoint on every request. Instead:
+> Gate does NOT call Guard per request. Instead:
 
-1. **At startup:** Gate downloads `GET /certs` (JWKS) and caches the public key
-2. **At startup (periodic refresh):** Gate re-fetches JWKS on a schedule (default: every 5 minutes)
-3. **Per request:** Gate validates the JWT signature **locally** using the cached public key — no network call
-4. **Per request:** Gate extracts `sub` → `X-User-Id` header, `realm_access.roles` → `X-User-Roles` header
-5. **On Keycloak restart / key rotation:** Spring Security's `NimbusJwtDecoder` automatically handles cache invalidation and new key retrieval
+1. **At startup:** Gate downloads `GET /certs` (JWKS) → caches public key
+2. **Periodic refresh:** Gate re-fetches JWKS every 5 minutes (Spring Security default)
+3. **Per request:** Gate validates JWT signature **locally** — zero network call
+4. **Claim extraction:** Gate extracts `sub` → `X-User-Id`, `realm_access.roles` → `X-User-Roles`
 
 ---
 
-## 7. Admin REST API (Out of Scope for MVP)
+## 6. Error Codes
 
-> Keycloak provides a full Admin REST API at `/auth/admin/realms/panomete/`. This is used programmatically in future phases for:
-> - Creating clients via API
-> - Managing users
-> - Resetting credentials
-
-> For MVP, admin operations are done through the Keycloak Admin Console UI (accessible at `/auth/admin/`).
+| HTTP | Error | Description |
+|:---:|-------|-------------|
+| 400 | `invalid_grant` | Invalid auth code or refresh token |
+| 401 | `invalid_client` | Invalid client credentials |
+| 401 | `invalid_token` | Expired/tampered token |
+| 403 | `unauthorized_client` | Client not authorized for grant type |
 
 ---
 
@@ -369,11 +202,5 @@ Authorization: Bearer {access_token}
 |----------|-------------|
 | [[flowero_guard/021_architecture_decision_records]] | Guard-specific ADRs |
 | [[flowero_guard/024_ERD]] | Logical realm data model |
-| [[flowero_guard/023_database_schema_DDL]] | Keycloak's database backend |
-| [[flowero_gate/022_API_specification]] | Gate consumes these endpoints for auth |
-| [[flowero_guard/012_user_stories]] | Stories this API supports |
-
----
-
-> **Template Standard:** Based on SWEBOK v4, OAuth 2.0 (RFC 6749), OpenID Connect Core 1.0
-> **Usage:** This document is the reference for any developer integrating a service with Flowero Guard. For the full Keycloak API reference, see [Keycloak Server Administration Guide](https://www.keycloak.org/docs/latest/server_admin/).
+| [[flowero_guard/023_database_schema_DDL]] | Database provisioning |
+| [[flowero_gate/022_API_specification]] | Gate consumes JWKS + token endpoints |

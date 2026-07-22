@@ -1,6 +1,6 @@
 ---
 document_type: API Specification
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "Dev / SA Persona"
 created: "2026-07-22"
@@ -20,14 +20,14 @@ standard_ref:
 
 > **Service:** Flowero Gate (Spring Cloud Gateway)
 > **Platform:** Panomete Platform
-> **Version:** 0.1 | **Status:** Draft
+> **Version:** 0.2 | **Status:** Draft — Updated per Design Review 2026-07-22
 > **Last Updated:** 2026-07-22
 
 ---
 
 ## 1. Purpose
 
-> Flowero Gate is the **single entry point** for all external traffic to the Panomete Platform. This document defines the Gateway's "API" — the public-facing route table, authentication behavior, error responses, rate limiting, and headers. Business service APIs are documented in their own specs — this document shows how to reach them.
+> Flowero Gate is the **internal API gateway** for business services. It sits behind Nginx at `api.panomete.com:8000`. It routes business API traffic, validates JWT locally, enforces Valkey-backed rate limiting, and emits structured JSON logs. Foundation services (Guard, Discover) are NOT routed through Gate — they have their own subdomains through Nginx.
 
 ---
 
@@ -35,49 +35,36 @@ standard_ref:
 
 | Field | Detail |
 |-------|--------|
-| **Base URL** | `https://panomete.local` |
-| **Protocol** | HTTPS (TLS 1.2+), with HTTP→HTTPS redirect on :80 |
+| **Internal Address** | `http://flowero-gate:8000` |
+| **External Address** | `https://api.panomete.com` (via Nginx → Cloudflare) |
+| **Protocol** | HTTP (internal). HTTPS is handled by Cloudflare. |
 | **Format** | JSON (errors, health), pass-through for proxied services |
-| **Authentication** | Bearer JWT token (issued by Flowero Guard) |
-| **Rate Limiting** | 100 req/min per client IP (default); 20/min for `/auth/**` |
+| **Auth** | Bearer JWT — validated locally against Keycloak JWKS (cached) |
 
 ---
 
-## 3. Route Table (Public API Surface)
+## 3. Route Table (Business APIs Only)
 
-> This is the complete public API of the Panomete Platform. Every URL a client can access.
+> Gate routes business API traffic only. Foundation services are routed directly by Nginx.
 
-### Phase 1 — Foundation Services
+| Route ID | Path | Backend (`lb://`) | Auth | Rate Limit |
+|----------|------|------------------|:---:|:---:|
+| `blog` | `/api/blog/**` | `lb://cute-gufo` | Yes | 100/min |
+| `short` | `/api/short/**` | `lb://fluffy-mouton` | Yes | 100/min |
+| `todo` | `/api/todo/**` | `lb://tiny-mchwa` | Yes | 100/min |
+| `ledger` | `/api/ledger/**` | `lb://big-schwein` | Yes | 100/min |
+| `recipe` | `/api/recipe/**` | `lb://shy-ardilla` | Yes | 100/min |
+| `hora` | `/api/hora/**` | `lb://white-jelen` | Yes | 100/min |
 
-| Route ID | Method | Path | Backend | Auth Required | Rate Limit | Description |
-|----------|:---:|------|---------|:---:|:---:|---|
-| `auth` | ALL | `/auth/**` | `lb://flowero-guard` | No (permit-all) | 20/min | Keycloak — login, token, logout |
-| `discover` | ALL | `/eureka/**` | `lb://flowero-discover` | Yes (`admin` role) | 100/min | Eureka dashboard |
-| `health` | GET | `/actuator/health` | Gateway itself | No | 100/min | Gateway health check |
-
-### Phase 2+ — Business Services
-
-| Route ID | Method | Path | Backend | Auth Required | Rate Limit | Description |
-|----------|:---:|------|---------|:---:|:---:|---|
-| `blog` | ALL | `/api/blog/**` | `lb://cute-gufo` | Yes | 100/min | Blog service |
-| `short` | ALL | `/api/short/**` | `lb://fluffy-mouton` | Yes | 100/min | URL shortener |
-| `todo` | ALL | `/api/todo/**` | `lb://tiny-mchwa` | Yes | 100/min | Todo list |
-| `ledger` | ALL | `/api/ledger/**` | `lb://big-schwein` | Yes | 100/min | Ledger |
-| `recipe` | ALL | `/api/recipe/**` | `lb://shy-ardilla` | Yes | 100/min | Cook book |
-| `hora` | ALL | `/api/hora/**` | `lb://white-jelen` | Yes | 100/min | Hora |
+**Not routed by Gate** (Nginx handles these):
+- `auth.panomete.com` → Flowero Guard :8001
+- `discovery.panomete.com` → Flowero Discover :3999
 
 ---
 
-## 4. Gateway-Specific Endpoints
+## 4. Gateway Endpoints
 
-### 4.1 Health Check
-
-#### GET /actuator/health
-
-| Field | Detail |
-|-------|--------|
-| **Description** | Gateway health status — includes composite health for Eureka connectivity |
-| **Auth** | None |
+### GET /actuator/health — Health Check
 
 **Response (200):**
 ```json
@@ -89,11 +76,13 @@ standard_ref:
       "components": {
         "discoveryClient": {
           "status": "UP",
-          "details": {
-            "services": ["FLOWERO-GUARD", "FLOWERO-DISCOVER"]
-          }
+          "details": {"services": ["FLOWERO-GUARD", "CUTE-GUFO"]}
         }
       }
+    },
+    "redisReactiveHealthIndicator": {
+      "status": "UP",
+      "details": {"version": "9.0"}
     }
   }
 }
@@ -101,128 +90,65 @@ standard_ref:
 
 ---
 
-### 4.2 Default Landing Page
-
-#### GET /
-
-| Field | Detail |
-|-------|--------|
-| **Description** | Default landing page when no route matches |
-
-**Response (200):** Simple HTML or plain text indicating the Gateway is running.
-```
-Panomete Platform — API Gateway
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-All services are accessed through this gateway.
-See /actuator/health for service status.
-```
-
----
-
 ## 5. Authentication Behavior
 
-### 5.1 Protected Routes
+### Without Token → 401
 
-> All routes except `/auth/**` and `/actuator/health` require authentication.
-
-**Without token:**
 ```
 HTTP/1.1 401 Unauthorized
-Content-Type: application/json
-
-{
-  "error": "Authentication required",
-  "path": "/api/blog/posts",
-  "timestamp": "2026-07-22T10:00:00Z"
-}
+{"error": "Authentication required", "path": "/api/blog/posts"}
 ```
 
-**With valid token:** Request is forwarded with user claim headers:
+### With Valid JWT → Forwarded with Claim Headers
 
 | Header | Source (JWT claim) | Example |
 |--------|-------------------|---------|
-| `X-User-Id` | `sub` | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` |
+| `X-User-Id` | `sub` | `a1b2c3d4-...` |
 | `X-User-Name` | `preferred_username` | `alice` |
 | `X-User-Roles` | `realm_access.roles` | `admin,user` |
 
-**With expired token:**
+### Expired / Invalid Token → 401
+
 ```
-HTTP/1.1 401 Unauthorized
-Content-Type: application/json
-
-{
-  "error": "Token expired",
-  "path": "/api/blog/posts",
-  "timestamp": "2026-07-22T10:00:00Z"
-}
+{"error": "Token expired"}  or  {"error": "Invalid token"}
 ```
-
-**With tampered/invalid token:**
-```
-HTTP/1.1 401 Unauthorized
-Content-Type: application/json
-
-{
-  "error": "Invalid token",
-  "path": "/api/blog/posts",
-  "timestamp": "2026-07-22T10:00:00Z"
-}
-```
-
-### 5.2 Permit-All Routes
-
-> `/auth/**` and `/actuator/health` bypass authentication. The Gateway proxies `/auth/**` to Keycloak, which handles its own auth (login page, token endpoints).
 
 ---
 
-## 6. Rate Limiting Behavior
+## 6. Rate Limiting (Valkey-Backed)
 
-### 6.1 Rate Limit Exceeded
+### Rate Limit Exceeded → 429
 
 ```
 HTTP/1.1 429 Too Many Requests
-Content-Type: application/json
 Retry-After: 45
-
-{
-  "error": "Rate limit exceeded",
-  "path": "/api/blog/posts",
-  "retry_after_seconds": 45,
-  "timestamp": "2026-07-22T10:00:00Z"
-}
+{"error": "Rate limit exceeded", "retry_after_seconds": 45}
 ```
 
-### 6.2 Rate Limit Headers (All Responses)
+### Response Headers (All Requests)
 
 | Header | Description |
 |--------|-------------|
-| `X-RateLimit-Limit` | Maximum requests per window (e.g., `100`) |
-| `X-RateLimit-Remaining` | Requests remaining in current window |
-| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+| `X-RateLimit-Limit` | Max requests per window |
+| `X-RateLimit-Remaining` | Remaining in current window |
+| `X-RateLimit-Reset` | Unix timestamp of reset |
 
 ---
 
 ## 7. Error Responses (Gateway-Level)
 
-> Errors that the Gateway itself generates (before reaching a backend service).
-
-| HTTP Status | Condition | Response Body |
+| HTTP | Condition | Body |
 |:---:|---|------|
-| 301 | HTTP request → redirect to HTTPS | `Location: https://panomete.local/...` |
-| 400 | Malformed request | `{"error": "Bad Request", ...}` |
-| 401 | Missing/invalid/expired JWT | `{"error": "Authentication required|Token expired|Invalid token", ...}` |
-| 403 | Insufficient role for route (e.g., `/eureka/**` without `admin` role) | `{"error": "Access Denied", "required_role": "admin", ...}` |
-| 404 | No route matches the path | `{"error": "Not Found", "path": "/nonexistent", ...}` |
-| 429 | Rate limit exceeded | `{"error": "Rate limit exceeded", "retry_after_seconds": N, ...}` |
-| 502 | Backend service unreachable | `{"error": "Bad Gateway", "route": "blog", ...}` |
-| 503 | Backend service DOWN (from Eureka) | `{"error": "Service Unavailable", "service": "cute-gufo", ...}` |
-| 504 | Backend service timeout | `{"error": "Gateway Timeout", "route": "blog", ...}` |
+| 401 | Missing/invalid/expired JWT | `{"error": "..."}` |
+| 403 | Insufficient role | `{"error": "Access Denied", "required_role": "admin"}` |
+| 404 | No route match | `{"error": "Not Found", "path": "/xyz"}` |
+| 429 | Rate limited | `{"error": "Rate limit exceeded", "retry_after_seconds": N}` |
+| 502 | Backend unreachable | `{"error": "Bad Gateway", "route": "..."}` |
+| 503 | Backend DOWN (Eureka evicted) | `{"error": "Service Unavailable", "service": "..."}` |
 
 ---
 
 ## 8. Request Logging (Structured JSON)
-
-> Every request through the Gateway is logged to stdout as structured JSON for consumption by Loki/Promtail:
 
 ```json
 {
@@ -234,7 +160,6 @@ Retry-After: 45
   "route_id": "blog",
   "backend": "cute-gufo",
   "client_ip": "192.168.1.100",
-  "user_agent": "Mozilla/5.0 ...",
   "user_id": "a1b2c3d4...",
   "user_roles": ["admin", "user"]
 }
@@ -244,97 +169,66 @@ Retry-After: 45
 
 ## 9. Path Rewriting
 
-> The Gateway strips the `/api/{service}/` prefix before forwarding to backend services:
+> Gate strips `/api/{service}/` prefix before forwarding:
 
 | Client Request | Forwarded to Backend |
 |---------------|---------------------|
 | `GET /api/blog/posts` | `GET /posts` |
-| `GET /api/blog/posts/123` | `GET /posts/123` |
 | `POST /api/short/links` | `POST /links` |
 | `GET /api/todo/todolists` | `GET /todolists` |
 
-> **Note:** This is configured via `StripPrefix=1` filter on `/api/**` routes. Business services define their API paths relative to their root, not including the `/api/{service}` prefix.
+> Configured via `StripPrefix=1` filter on all `/api/**` routes.
 
 ---
 
 ## 10. Configuration Reference
 
 ```yaml
-# application.yml — Gateway configuration
 server:
-  port: 443
-  ssl:
-    key-store: classpath:keystore.p12
-    key-store-password: ${KEYSTORE_PASSWORD}
-    key-alias: panomete
+  port: 8000
 
 spring:
   application:
     name: flowero-gate
   cloud:
     gateway:
-      default-filters:
-        - AddResponseHeader=X-Gateway, flowero-gate
       routes:
-        # Foundation Services
-        - id: auth
-          uri: lb://flowero-guard
-          predicates:
-            - Path=/auth/**
-        - id: discover
-          uri: lb://flowero-discover
-          predicates:
-            - Path=/eureka/**
+        - id: blog
+          uri: lb://cute-gufo
+          predicates: [Path=/api/blog/**]
           filters:
+            - StripPrefix=1
             - name: RequestRateLimiter
               args:
                 redis-rate-limiter.replenishRate: 100
-
-        # Business Services (Phase 2+)
-        - id: blog
-          uri: lb://cute-gufo
-          predicates:
-            - Path=/api/blog/**
-          filters:
-            - StripPrefix=1
-        - id: short
-          uri: lb://fluffy-mouton
-          predicates:
-            - Path=/api/short/**
-          filters:
-            - StripPrefix=1
-
+                redis-rate-limiter.burstCapacity: 200
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://flowero-guard:8080/auth/realms/panomete
-          jwk-set-uri: http://flowero-guard:8080/auth/realms/panomete/protocol/openid-connect/certs
+          issuer-uri: https://auth.panomete.com/realms/panomete
+          jwk-set-uri: https://auth.panomete.com/realms/panomete/protocol/openid-connect/certs
+
+  data:
+    redis:
+      host: valkey  # or host.docker.internal
+      port: 6379
 
 logging:
   pattern:
-    console: '{"timestamp":"%d{ISO8601}","level":"%p","logger":"%c","message":"%m"}%n'
+    console: '{"timestamp":"%d{ISO8601}","level":"%p","message":"%m"}%n'
 ```
 
 ---
 
-## 11. Adding a New Route
+## 11. Adding a New Service
 
-> To add a new business service (e.g., a future "Notes" service):
+1. Register the service in Eureka (`spring.application.name`)
+2. Add a route block to Gate's `application.yml`
+3. Register an OAuth2 client in Keycloak
+4. Restart Gate
 
-1. **Register the service in Eureka** (service auto-registers with `spring.application.name: notes-service`)
-2. **Add a route block** to Gateway's `application.yml`:
-   ```yaml
-   - id: notes
-     uri: lb://notes-service
-     predicates:
-       - Path=/api/notes/**
-     filters:
-       - StripPrefix=1
-   ```
-3. **Restart Gateway** — new route is active
-
-> The service inherits authentication, rate limiting, and request logging automatically — no additional configuration.
+> The new service inherits JWT validation, rate limiting, and structured logging automatically.
 
 ---
 
@@ -344,11 +238,5 @@ logging:
 |----------|-------------|
 | [[flowero_gate/021_architecture_decision_records]] | Gate-specific ADRs |
 | [[panomete_platform/021_architecture_decision_records]] | Platform-level ADRs |
-| [[flowero_guard/022_API_specification]] | Auth endpoints Gate proxies to |
-| [[flowero_discover/022_API_specification]] | Discovery endpoints Gate resolves from |
-| [[flowero_gate/012_user_stories]] | Stories implementing this routing table |
-
----
-
-> **Template Standard:** Based on SWEBOK v4, OpenAPI Specification 3.0
-> **Usage:** This is the platform's public API contract. All external consumers — browsers, mobile apps, API clients — access the platform exclusively through these routes.
+| [[flowero_guard/022_API_specification]] | JWKS endpoint Gate uses for auth |
+| [[flowero_discover/022_API_specification]] | Discovery endpoints Gate uses for routing |

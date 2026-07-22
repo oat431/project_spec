@@ -1,6 +1,6 @@
 ---
 document_type: Database Schema (DDL)
-version: "0.1"
+version: "0.2"
 status: Draft
 author: "Dev / SA Persona"
 created: "2026-07-22"
@@ -19,170 +19,93 @@ standard_ref:
 
 > **Service:** Flowero Guard (Keycloak IAM)
 > **Platform:** Panomete Platform
-> **Version:** 0.1 | **Status:** Draft
+> **Version:** 0.2 | **Status:** Draft — Updated per Design Review 2026-07-22
 > **Last Updated:** 2026-07-22
 
 ---
 
-## 1. Important: Keycloak Manages Its Own Schema
+## 1. Important
 
-> ⚠️ **We do NOT write DDL for Keycloak.** Keycloak uses Liquibase internally to manage its database schema. The tables, indexes, and constraints are created automatically when Keycloak starts for the first time against an empty database.
-
-> This document defines the **database we provision** and the **Keycloak datasource configuration** — not the Keycloak internal schema.
+> ⚠️ **We do NOT write DDL for Keycloak.** Keycloak uses Liquibase to manage its own schema. This document defines the database provisioning and connection configuration.
 
 ---
 
 ## 2. Database Provisioning
 
-### 2.1 Create Database and User
-
-> Run once before starting Keycloak. This is what `guard-db` needs to exist.
+> Run once on the existing shared PostgreSQL 18 instance before starting Keycloak.
 
 ```sql
--- Create the database
+-- Create the Keycloak database on the shared PostgreSQL 18 instance
 CREATE DATABASE keycloak
     WITH ENCODING 'UTF8'
     LC_COLLATE = 'en_US.UTF-8'
     LC_CTYPE = 'en_US.UTF-8';
 
--- Create the Keycloak user
-CREATE USER keycloak WITH PASSWORD '${KC_DB_PASSWORD}';
-
--- Grant permissions
+-- Grant to Keycloak user
 GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
 GRANT ALL ON SCHEMA public TO keycloak;
-```
-
-### 2.2 Docker Compose Configuration
-
-```yaml
-services:
-  guard-db:
-    image: postgres:15-alpine
-    container_name: guard-db
-    environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
-    volumes:
-      - guard-db-data:/var/lib/postgresql/data
-    networks:
-      - panomete-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  guard-db-data:
 ```
 
 ---
 
 ## 3. Keycloak Datasource Configuration
 
-> Keycloak connects to PostgreSQL via JDBC. Configuration is passed as environment variables.
-
-```bash
-# Keycloak database connection (Docker Compose .env)
-KC_DB=postgres
-KC_DB_URL=jdbc:postgresql://guard-db:5432/keycloak
-KC_DB_USERNAME=keycloak
-KC_DB_PASSWORD=${KC_DB_PASSWORD}
-```
+> Keycloak connects to the shared PostgreSQL 18 via JDBC.
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
 | `KC_DB` | `postgres` | Database vendor |
-| `KC_DB_URL` | `jdbc:postgresql://guard-db:5432/keycloak` | JDBC connection string |
+| `KC_DB_URL` | `jdbc:postgresql://host.docker.internal:5432/keycloak` | Shared PostgreSQL 18 |
 | `KC_DB_USERNAME` | `keycloak` | Database user |
 | `KC_DB_PASSWORD` | From `.env` file | Never commit to git |
-| `KC_DB_POOL_INITIAL_SIZE` | `5` | Connection pool initial size |
-| `KC_DB_POOL_MAX_SIZE` | `20` | Connection pool max size |
+| `KC_DB_POOL_INITIAL_SIZE` | `5` | Connection pool |
+| `KC_DB_POOL_MAX_SIZE` | `20` | Max connections |
+
+> **Note:** `host.docker.internal` is used if PostgreSQL runs on the host (not in a container). If PostgreSQL is containerized on the same Docker network, use the container name.
 
 ---
 
-## 4. Keycloak Internal Schema Overview
+## 4. Keycloak Internal Schema (Reference Only)
 
-> For reference only — Keycloak creates these core tables on first boot. **Do not modify these tables manually.**
+> Keycloak creates these core tables on first boot. **Do NOT modify manually.**
 
-| Table | Purpose | Key Columns |
-|-------|---------|------------|
-| `REALM` | Realm configuration | `ID`, `NAME`, `ENABLED` |
-| `CLIENT` | OAuth2 clients | `ID`, `CLIENT_ID`, `SECRET`, `REALM_ID` |
-| `USER_ENTITY` | Users | `ID`, `USERNAME`, `EMAIL`, `REALM_ID` |
-| `USER_ROLE_MAPPING` | User-to-role assignments | `USER_ID`, `ROLE_ID` |
-| `KEYCLOAK_ROLE` | Realm and client roles | `ID`, `NAME`, `REALM_ID`, `CLIENT_ID` |
-| `CREDENTIAL` | User credentials (hashed passwords) | `ID`, `USER_ID`, `TYPE`, `SECRET_DATA` |
-| `USER_SESSION` | Active user sessions | `ID`, `USER_ID`, `REALM_ID` |
-| `CLIENT_SESSION` | Client-level session data | `ID`, `CLIENT_ID`, `SESSION_ID` |
-| `EVENT_ENTITY` | Audit events | `ID`, `REALM_ID`, `TYPE`, `USER_ID`, `IP_ADDRESS` |
-
-> **Total tables:** ~90+. Keycloak's schema is complex — this is why we use it rather than building auth from scratch.
+| Table | Purpose |
+|-------|---------|
+| `REALM` | Realm configuration |
+| `CLIENT` | OAuth2 clients |
+| `USER_ENTITY` | Users |
+| `USER_ROLE_MAPPING` | User-to-role assignments |
+| `KEYCLOAK_ROLE` | Realm and client roles |
+| `CREDENTIAL` | Hashed passwords/credentials |
+| `USER_SESSION` | Active sessions |
+| `EVENT_ENTITY` | Audit events |
 
 ---
 
 ## 5. Realm Configuration (JSON)
 
-> The realm configuration lives in version control as a JSON export file. This is NOT SQL — it's Keycloak's realm representation.
-
-**File:** `keycloak/panomete-realm.json`
-
-**Key configuration elements:**
+> Version-controlled at `keycloak/panomete-realm.json`. Key configuration:
 
 ```json
 {
-  "id": "panomete",
   "realm": "panomete",
   "enabled": true,
-  "roles": {
-    "realm": [
-      { "name": "admin" },
-      { "name": "user" },
-      { "name": "viewer" }
-    ]
-  },
-  "clients": [
-    {
-      "clientId": "fluffy-mouton",
-      "enabled": true,
-      "publicClient": false,
-      "serviceAccountsEnabled": true,
-      "standardFlowEnabled": true,
-      "redirectUris": ["https://panomete.local/*"]
-    }
-  ],
+  "roles": { "realm": [
+    {"name": "admin"}, {"name": "user"}, {"name": "viewer"}
+  ]},
   "accessTokenLifespan": 300,
-  "ssoSessionIdleTimeout": 1800,
-  "refreshTokenMaxReuse": 0
+  "ssoSessionIdleTimeout": 1800
 }
 ```
-
-> **Note:** The full realm export is generated by Keycloak. The snippet above shows the logical structure. Client secrets are NOT included in the export — they are set via environment variables or Admin Console.
 
 ---
 
 ## 6. Backup Strategy
 
-| Strategy | Frequency | Retention | Method |
-|----------|-----------|-----------|--------|
-| Full DB backup | Daily | 30 days | `pg_dump -U keycloak keycloak > keycloak_backup.sql` |
-| Realm export | On every realm change | Version controlled | Keycloak Admin Console → Export |
-| WAL archiving | Continuous | 7 days | Not needed for homelab — daily pg_dump is sufficient |
-
-> **Disaster Recovery:** Restore from `pg_dump` backup + re-import realm JSON if the DB backup is stale.
-
----
-
-## 7. Migration Strategy
-
-> Keycloak handles its own schema migrations via Liquibase on startup. When upgrading Keycloak versions:
-> 1. Backup the database (`pg_dump`)
-> 2. Stop the old Keycloak container
-> 3. Start the new Keycloak container pointing to the same database
-> 4. Keycloak runs Liquibase migrations automatically
-> 5. Verify realm, clients, and users are intact
+| Strategy | Frequency | Method |
+|----------|-----------|--------|
+| Full DB backup | Daily | `pg_dump -U postgres keycloak > backup.sql` |
+| Realm export | On change | Version-controlled JSON |
 
 ---
 
@@ -191,11 +114,5 @@ KC_DB_PASSWORD=${KC_DB_PASSWORD}
 | Document | Relationship |
 |----------|-------------|
 | [[flowero_guard/024_ERD]] | Logical realm data model |
-| [[flowero_guard/022_API_specification]] | OAuth2 endpoints served by this database |
-| [[flowero_guard/012_user_stories]] | Stories this configuration supports |
+| [[flowero_guard/022_API_specification]] | Endpoints served by this database |
 | [[panomete_platform/025_software_architecture_document]] | Platform deployment topology |
-
----
-
-> **Template Standard:** Based on SWEBOK v4
-> **Usage:** This document is the database provisioning guide. Do NOT write SQL against Keycloak tables directly — use the Keycloak Admin API.
