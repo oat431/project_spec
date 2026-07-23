@@ -15,16 +15,23 @@ flowchart TB
         Nginx["Nginx<br>Subdomain Router"]
     end
 
-    subgraph Foundation["🔒 Foundation Services"]
+    subgraph Foundation["🔒 Foundation Services — ✅ Deployed"]
         Guard["Flowero Guard<br>Keycloak IAM :8001<br>auth.panomete.com"]
         Discover["Flowero Discover<br>Eureka Registry :8999/:3999<br>discovery.panomete.com"]
     end
 
-    subgraph Gateway["Flowero Gate — API Gateway"]
+    subgraph Gateway["Flowero Gate — ✅ Deployed"]
         Gate["Spring Cloud Gateway :8000<br>api.panomete.com<br>JWT Auth · Rate Limit · Routing"]
     end
 
-    subgraph Business["📦 Business Services"]
+    subgraph Observability["📊 Observability — Phase 2 🛠️"]
+        Prom["Prometheus :9090<br>metrics.panomete.com"]
+        Grafana["Grafana :3000<br>grafana.panomete.com"]
+        Loki["Loki :3100<br>(internal)"]
+        Kuma["Uptime Kuma :3001<br>status.panomete.com"]
+    end
+
+    subgraph Business["📦 Business Services — Phase 3+"]
         Blog["Cute Gufo 🦉<br>Blog :8005 / :3005"]
         URL["Fluffy Mouton 🐑<br>URL :8002 / :3002"]
         Todo["Tiny Mchwa 🐜<br>Todo :8003 / :3003"]
@@ -39,6 +46,9 @@ flowchart TB
     Nginx -->|"auth.panomete.com"| Guard
     Nginx -->|"discovery.panomete.com"| Discover
     Nginx -->|"api.panomete.com"| Gate
+    Nginx -->|"metrics.panomete.com"| Prom
+    Nginx -->|"grafana.panomete.com"| Grafana
+    Nginx -->|"status.panomete.com"| Kuma
 
     Gate -->|"/api/blog/**"| Blog
     Gate -->|"/api/short/**"| URL
@@ -58,25 +68,40 @@ flowchart TB
     Cook -->|"registers"| Discover
     Hora -->|"registers"| Discover
 
+    Prom -.->|"scrapes /actuator"| Guard
+    Prom -.->|"scrapes /actuator"| Discover
+    Prom -.->|"scrapes /actuator"| Gate
+    Loki -.->|"collects logs"| Foundation
+    Loki -.->|"collects logs"| Gateway
+    Grafana -->|"queries"| Prom
+    Grafana -->|"queries"| Loki
+    Grafana -.->|"alerts →"| Discord["Discord Webhook"]
+
     style External fill:#f6821f,stroke:#e06a10,color:#fff
     style Edge fill:#009639,stroke:#007a2e,color:#fff
     style Foundation fill:#2c3e50,stroke:#34495e,color:#ecf0f1
     style Gateway fill:#e74c3c,stroke:#c0392b,color:#fff
+    style Observability fill:#6c3483,stroke:#5b2c6f,color:#ecf0f1
     style Business fill:#1a1a2e,stroke:#333,color:#aaa
     style Guard fill:#3498db,stroke:#2980b9,color:#fff
     style Discover fill:#27ae60,stroke:#1e8449,color:#fff
     style Gate fill:#e74c3c,stroke:#c0392b,color:#fff
     style CF fill:#f6821f,stroke:#e06a10,color:#fff
     style Nginx fill:#009639,stroke:#007a2e,color:#fff
+    style Prom fill:#e67e22,stroke:#d35400,color:#fff
+    style Grafana fill:#f39c12,stroke:#d68910,color:#fff
+    style Loki fill:#8e44ad,stroke:#7d3c98,color:#fff
+    style Kuma fill:#1abc9c,stroke:#16a085,color:#fff
+    style Discord fill:#5865F2,stroke:#4752C4,color:#fff
 ```
 
 ## Foundation Services (Phase 1 MVP)
 
 | Service | Code Name | Technology | Port | Domain | Role | Status |
 |---------|-----------|-----------|------|--------|------|--------|
-| **Flowero Guard** | — | Keycloak (uses shared PostgreSQL 18) | 8001 | `auth.panomete.com` | Identity & Access Management — issues OAuth2/OIDC tokens | 📋 Spec Ready |
-| **Flowero Discover** | — | Spring Cloud Eureka | 8999 (BE) / 3999 (FE) | `discovery.panomete.com` | Service Registry & Discovery | 📋 Spec Ready |
-| **Flowero Gate** | — | Spring Cloud Gateway | 8000 | `api.panomete.com` | API Gateway — JWT validation, Valkey-backed rate limiting, route to business services | 📋 Spec Ready |
+| **Flowero Guard** | — | Keycloak (uses shared PostgreSQL 18) | 8001 | `auth.panomete.com` | Identity & Access Management — issues OAuth2/OIDC tokens | ✅ Deployed |
+| **Flowero Discover** | — | Spring Cloud Eureka | 8999 (BE) / 3999 (FE) | `discovery.panomete.com` | Service Registry & Discovery | ✅ Deployed |
+| **Flowero Gate** | — | Spring Cloud Gateway | 8000 | `api.panomete.com` | API Gateway — JWT validation, Valkey-backed rate limiting, route to business services | ✅ Deployed |
 
 ## Business Services (Future Phases)
 
@@ -100,7 +125,8 @@ flowchart TB
 | **Service Discovery** | Spring Cloud Netflix Eureka | Simplest path with Spring Boot; embeddable, no external dependency |
 | **Rate Limiting** | Valkey 9 (shared instance) | Replaces in-memory rate limiting. Limits persist across Gate restarts. Already running in production. |
 | **Deployment** | Docker Compose → Kubernetes (k3s) | Compose for homelab simplicity; K8s for portfolio growth |
-| **Observability** | Phase 2: Actuator + Loki + Prometheus + Grafana | Deferred until foundation is stable. Uptime Kuma handles infra-level uptime monitoring in the interim. |
+| **CI/CD** | GitHub Actions + GHCR | Per-service pipelines: lint → test → build → push to GHCR. Manual deploy approval via `workflow_dispatch`. Phase 2. |
+| **Observability** | Phase 2: Actuator + Prometheus + Grafana + Loki | In progress. Prometheus scrapes `/actuator/prometheus`, Grafana visualizes, Loki aggregates logs. Discord webhook for alerts. |
 
 ## Existing Infrastructure (Already Live)
 
@@ -126,26 +152,28 @@ treeView-beta
   spec/
   ├── 📋 panomete_platform/  → Platform-Level Docs
   │   ├── README.md  → Architecture Overview (this file)
-  │   └── 01_requirement/
-  │       ├── 011_business_objective.md  → 5 SMART Objectives
-  │       ├── 012_user_stories.md  → Umbrella Story Map
-  │       └── 014_stakeholder_analysis.md  → 8 Stakeholders
-  ├── 🔒 flowero_guard/  → Keycloak IAM · :8001 · auth.panomete.com
-  │   └── 01_requirement/
-  │       ├── 011_business_objective.md
-  │       ├── 012_user_stories.md  → 6 Stories · 21 pts
-  │       └── 013_acceptance_criteria.md  → 30 BDD Criteria
-  ├── 🟢 flowero_discover/  → Eureka Registry · :8999/:3999 · discovery.panomete.com
-  │   └── 01_requirement/
-  │       ├── 011_business_objective.md
-  │       ├── 012_user_stories.md  → 4 Stories · 11 pts
-  │       └── 013_acceptance_criteria.md  → 17 BDD Criteria
-  ├── 🔴 flowero_gate/  → API Gateway · :8000 · api.panomete.com
-  │   └── 01_requirement/
-  │       ├── 011_business_objective.md
-  │       ├── 012_user_stories.md  → 5 Stories · 18 pts
-  │       └── 013_acceptance_criteria.md  → 22 BDD Criteria
-  ├── 🐜 tiny_mchwa/  → Todo List · ✅ Complete
+  │   ├── 01_requirement/
+  │   │   ├── 011_business_objective.md  → 5 SMART Objectives
+  │   │   ├── 012_user_stories.md  → Umbrella Story Map
+  │   │   └── 014_stakeholder_analysis.md  → 8 Stakeholders
+  │   └── 03_construction/
+  │       └── 031_README_developer_guide.md  → Platform Dev Guide
+  ├── 🔒 flowero_guard/  → Keycloak IAM · :8001 · auth.panomete.com · ✅ Deployed
+  │   ├── 01_requirement/  → 3 Stories · 30 BDD ACs
+  │   ├── 02_design/  → ADR + API + DDL + ERD
+  │   ├── 03_construction/  → 6 docs (031-036)
+  │   └── 05_devops/  → CI/CD + Deploy + Runbook
+  ├── 🟢 flowero_discover/  → Eureka Registry · :8999/:3999 · discovery.panomete.com · ✅ Deployed
+  │   ├── 01_requirement/  → 4 Stories · 16 BDD ACs
+  │   ├── 02_design/  → ADR + API
+  │   ├── 03_construction/  → 6 docs (031-036)
+  │   └── 05_devops/  → CI/CD + Deploy + Runbook
+  ├── 🔴 flowero_gate/  → API Gateway · :8000 · api.panomete.com · ✅ Deployed
+  │   ├── 01_requirement/  → 5 Stories · 24 BDD ACs
+  │   ├── 02_design/  → ADR + API
+  │   ├── 03_construction/  → 6 docs (031-036)
+  │   └── 05_devops/  → CI/CD + Deploy + Runbook
+  ├── 🐜 tiny_mchwa/  → Todo List · ✅ Spec Complete
   │   ├── 01_requirement/
   │   ├── 02_design/
   │   ├── 03_construction/
@@ -157,6 +185,9 @@ treeView-beta
   │   └── migration_note/
   ├── 🦉 cute_gufo/  → Blog · TBD
   └── 🐷 big_schwein/  → Ledger · TBD
+
+  plan/
+  └── phase2-foundation-hardening.md  → 5 Initiatives · 14 Action Items
 ```
 
 ## Development Status
@@ -170,13 +201,23 @@ treeView-beta
 
 ## Quick Links
 
+**Platform:**
 - [[panomete_platform/011_business_objective | Platform Business Objectives]]
 - [[panomete_platform/014_stakeholder_analysis | Stakeholder Analysis]]
-- [[flowero_guard/012_user_stories | Flowero Guard Stories]]
-- [[flowero_discover/012_user_stories | Flowero Discover Stories]]
-- [[flowero_gate/012_user_stories | Flowero Gate Stories]]
-- [[MM01_affect-doc_20260722| Design Review — Meeting Minutes (2026-07-22)]]
+- [[panomete_platform/03_construction/031_README_developer_guide | Platform Developer Guide]]
+
+**Foundation Services (✅ Deployed):**
+- [[flowero_guard/03_construction/031_README_developer_guide | Flowero Guard — Dev Guide]]
+- [[flowero_discover/03_construction/031_README_developer_guide | Flowero Discover — Dev Guide]]
+- [[flowero_gate/03_construction/031_README_developer_guide | Flowero Gate — Dev Guide]]
+
+**Phase 2 Planning:**
+- [[../../plan/phase2-foundation-hardening | Phase 2 — Foundation Hardening Plan]]
+
+**Meeting Minutes:**
+- [[../meeting-minute/MM07_phase2-planning_20260724 | Phase 2 Proposal (DevOps → PO)]]
+- [[../meeting-minute/po-update-2026-07-22 | PO Requirements Update]]
 
 ---
 
-> **Built for:** Portfolio demonstration | **Architecture:** Microservices with Cloudflare → Nginx → centralized auth, discovery, and API gateway | **Phase 1:** Foundation services only | **Approach:** Documentation-first, AI-persona-driven implementation | **Domain:** `*.panomete.com`
+> **Phase 1:** ✅ Foundation deployed (Guard, Discover, Gate) | **Phase 2:** 🛠️ Foundation Hardening (CI/CD, Observability, Alerting, Backup, Uptime) | **Phase 3:** 📋 Business Service Onboarding | **Architecture:** Cloudflare → Nginx → centralized auth, discovery, and API gateway | **Domain:** `*.panomete.com`
