@@ -214,7 +214,7 @@ sequenceDiagram
 |--------|--------|
 | **Responsibility** | Service registry. Track which services are running, their locations, and their health status. Enable dynamic peer discovery. |
 | **Technology** | Spring Cloud Netflix Eureka Server |
-| **Language / Stack** | Java 21 / Spring Boot 3.x |
+| **Language / Stack** | Java 25 / Spring Boot 4.1.x |
 | **Ports** | 8999 (BE — registration API), 3999 (FE — dashboard) |
 | **Domain** | `discovery.panomete.com` (via Nginx) |
 | **Database** | None — fully in-memory |
@@ -228,7 +228,7 @@ sequenceDiagram
 |--------|--------|
 | **Responsibility** | Internal API Gateway. Route business API traffic, validate JWT locally against Keycloak JWKS, enforce Valkey-backed rate limiting, emit structured JSON logs. |
 | **Technology** | Spring Cloud Gateway (Reactive, Netty-based) |
-| **Language / Stack** | Java 21 / Spring Boot 3.x / WebFlux |
+| **Language / Stack** | Java 25 / Spring Boot 4.1.x / WebFlux |
 | **Port** | 8000 (internal, behind Nginx) |
 | **Domain** | `api.panomete.com` (via Nginx) |
 | **Database** | None — fully stateless |
@@ -378,7 +378,7 @@ flowchart TB
 | 1 | Keycloak for Identity | Production-grade OSS IAM. No auth code in services. | ADR-001 |
 | 2 | Spring Cloud Gateway (internal) | Business API routing + JWT validation. Behind existing Nginx. | ADR-002 |
 | 3 | Eureka for Discovery | Simplest path with Spring Cloud. Auto-registration. | ADR-003 |
-| 4 | Java 21 / Spring Boot for Foundation | Spring Cloud provides Gateway + Security + Discovery integrations. | ADR-004 |
+| 4 | Java 25 / Spring Boot 4.1 for Foundation | Spring Cloud 2025.1 provides Gateway + Security + Discovery integrations. Latest LTS Java. | ADR-004 |
 | 5 | Shared PostgreSQL 18 | Uses existing infrastructure. No dedicated DB container needed. | ADR-005 |
 | 6 | Nginx edge + Cloudflare TLS | Already running. TLS is Cloudflare's concern. | ADR-006 |
 | 7 | JWT local validation at Gate | Zero-latency auth. No per-request call to Guard. | ADR-007 |

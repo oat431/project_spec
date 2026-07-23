@@ -105,7 +105,7 @@ sequenceDiagram
 | **Identity** | Keycloak | OAuth2/OIDC. Realm-as-code. SSO. |
 | **API Gateway** | Spring Cloud Gateway | Reactive. JWT validation. Eureka `lb://` resolution. |
 | **Service Discovery** | Eureka | Auto-registration. Dashboard. Spring ecosystem. |
-| **Foundation Runtime** | Java 21 / Spring Boot 3.x | Spring Cloud provides full microservice stack. |
+| **Foundation Runtime** | Java 25 / Spring Boot 4.1.x | Spring Cloud 2025.1 (Oakwood) provides full microservice stack. |
 | **Database** | PostgreSQL 18 (shared) | Existing. ACID. Keycloak's recommended backend. |
 | **Cache / Rate Limit** | Valkey 9 (shared) | Existing. Survives restarts. |
 | **Deployment** | Docker Compose | Alongside existing services. Design for k3s later. |

@@ -94,7 +94,7 @@ flowchart TB
 | Layer | Choice | Rationale |
 |-------|--------|-----------|
 | **Edge / TLS** | Cloudflare Tunnel + Nginx | Cloudflare handles TLS termination + DDoS protection. Nginx does subdomain-based routing to internal services. Both already running in production. |
-| **Foundation Language** | Java 21 / Spring Boot 3.x | Spring ecosystem provides native Gateway (Spring Cloud Gateway), Security (OAuth2 Resource Server), and Discovery (Eureka) integrations |
+| **Foundation Language** | Java 25 / Spring Boot 4.1.x | Latest LTS Java. Spring ecosystem provides native Gateway (Spring Cloud Gateway), Security (OAuth2 Resource Server), and Discovery (Eureka) integrations |
 | **Identity** | Keycloak | Production-grade OSS IAM with full OAuth2/OIDC support. Uses shared PostgreSQL 18 for persistence. |
 | **API Gateway** | Spring Cloud Gateway | Reactive, non-blocking. Routes business APIs only (`api.panomete.com`). Validates JWT against Keycloak JWKS. |
 | **Service Discovery** | Spring Cloud Netflix Eureka | Simplest path with Spring Boot; embeddable, no external dependency |

@@ -53,7 +53,7 @@ standard_ref:
 |--------|--------|
 | **Service Type** | Foundation — API Gateway (business APIs only) |
 | **Technology** | Spring Cloud Gateway (Reactive, Netty-based) |
-| **Language / Stack** | Java 21 / Spring Boot 3.x / WebFlux |
+| **Language / Stack** | Java 25 / Spring Boot 4.1.x / WebFlux |
 | **Port** | 8000 (internal, behind Nginx) |
 | **Domain** | `api.panomete.com` |
 | **Dependencies** | Flowero Guard (JWKS endpoint for local JWT validation), Flowero Discover (route resolution for business services), Valkey 9 (rate limiting) |

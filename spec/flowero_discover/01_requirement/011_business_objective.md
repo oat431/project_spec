@@ -35,7 +35,7 @@ tags: [business-objectives, eureka, service-discovery, panomete]
 |--------|--------|
 | **Service Type** | Foundation — Service Registry |
 | **Technology** | Spring Cloud Netflix Eureka Server |
-| **Language / Stack** | Java 21 / Spring Boot 3.x |
+| **Language / Stack** | Java 25 / Spring Boot 4.1.x |
 | **Ports** | 8999 (BE — service registration API), 3999 (FE — dashboard) |
 | **Domain** | `discovery.panomete.com` (via Nginx) |
 | **Dependencies** | None (standalone, no database) |

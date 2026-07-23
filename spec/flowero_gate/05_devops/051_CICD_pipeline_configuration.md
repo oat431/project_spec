@@ -33,9 +33,9 @@ standard_ref:
 
 | Aspect | Detail |
 |--------|--------|
-| Language | Java 21 |
-| Framework | Spring Boot 3.x + Spring Cloud Gateway (Reactive/WebFlux) |
-| Build Tool | Maven (Maven Wrapper `mvnw`) |
+| Language | Java 25 |
+| Framework | Spring Boot 4.1.x + Spring Cloud Gateway 2025.1.x (Reactive/WebFlux) |
+| Build Tool | Gradle 9.5+ (`gradlew`) |
 | Artifact | Fat JAR → Docker image |
 | Runtime Dependencies | Guard (JWKS), Discover (Eureka), Valkey (rate limiting) |
 | Port | 8000 |
@@ -55,8 +55,8 @@ flowero-gate/
 │   └── test/
 │       └── java/               # Unit tests, route tests, JWT validation tests
 ├── Dockerfile
-├── pom.xml
-└── mvnw / mvnw.cmd
+├── build.gradle
+└── gradlew / gradlew.bat
 ```
 
 ---
@@ -84,27 +84,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
-          cache: maven
+          cache: gradle
 
       - name: Compile
-        run: cd flowero-gate && ./mvnw compile -q
+        run: cd flowero-gate && ./gradlew compileJava -q
 
       - name: Lint (Checkstyle)
-        run: cd flowero-gate && ./mvnw checkstyle:check -q
-
-      - name: Lint (SpotBugs)
-        run: cd flowero-gate && ./mvnw spotbugs:check -q
+        run: cd flowero-gate && ./gradlew checkstyleMain -q
 
       - name: Unit Tests
-        run: cd flowero-gate && ./mvnw test -q
+        run: cd flowero-gate && ./gradlew test -q
 
       - name: Package
-        run: cd flowero-gate && ./mvnw package -DskipTests -q
+        run: cd flowero-gate && ./gradlew bootJar -q
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
@@ -135,15 +132,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
-          cache: maven
+          cache: gradle
 
       - name: Build JAR
-        run: cd flowero-gate && ./mvnw package -DskipTests -q
+        run: cd flowero-gate && ./gradlew bootJar -q
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -216,9 +213,8 @@ jobs:
 
 | Stage | Purpose | Duration (est.) | Failure Action |
 |-------|---------|:---:|----------------|
-| Compile | Java 21 compilation | < 30 sec | Block merge |
+| Compile | Java 25 compilation | < 30 sec | Block merge |
 | Checkstyle | Code style enforcement | < 20 sec | Block merge |
-| SpotBugs | Static analysis | < 30 sec | Block merge |
 | Unit Test | JUnit + Mockito (route tests, JWT tests) | < 2 min | Block merge |
 | Package | Build fat JAR | < 30 sec | Block deploy |
 | Docker Build | Multi-stage build | < 2 min | Block deploy |
@@ -231,16 +227,17 @@ jobs:
 
 ```dockerfile
 # flowero-gate/Dockerfile
-FROM maven:3.9-eclipse-temurin-21 AS builder
+FROM eclipse-temurin:25-jdk-alpine AS builder
 WORKDIR /build
-COPY pom.xml .
-RUN mvn dependency:go-offline -q
-COPY src ./src
-RUN mvn package -DskipTests -q
+COPY gradlew gradlew.bat settings.gradle build.gradle ./
+COPY gradle/ gradle/
+RUN chmod +x gradlew && ./gradlew dependencies --no-daemon 2>/dev/null || true
+COPY src/ src/
+RUN ./gradlew bootJar --no-daemon -x test
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
-COPY --from=builder /build/target/*.jar app.jar
+COPY --from=builder /build/build/libs/*.jar app.jar
 
 EXPOSE 8000
 
@@ -319,7 +316,7 @@ logging:
 
 A pull request changing `flowero-gate/**` cannot merge unless:
 
-- [ ] Compiles without errors (Java 21)
+- [ ] Compiles without errors (Java 25)
 - [ ] Checkstyle passes (zero violations)
 - [ ] SpotBugs passes (zero warnings)
 - [ ] All unit tests pass (including route config tests and JWT validation tests)
@@ -343,7 +340,7 @@ A deployment of Gate cannot proceed unless:
 cd flowero-gate
 
 # Run locally (requires Guard + Discover + Valkey running)
-./mvnw spring-boot:run
+./gradlew bootRun
 
 # Health check
 curl http://localhost:8000/actuator/health

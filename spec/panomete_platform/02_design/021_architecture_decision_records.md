@@ -30,7 +30,7 @@ standard_ref:
 | ADR-001 | Keycloak for Centralized Identity | ✅ Accepted | 2026-07-22 | Keycloak, not custom auth service. Guard IS Keycloak. |
 | ADR-002 | Spring Cloud Gateway as Internal API Gateway | ✅ Accepted | 2026-07-22 | Gate routes business APIs only. Behind existing Nginx. |
 | ADR-003 | Eureka for Service Discovery | ✅ Accepted | 2026-07-22 | Spring Cloud Netflix Eureka, standalone mode |
-| ADR-004 | Java 21 / Spring Boot for Foundation | ✅ Accepted | 2026-07-22 | All foundation services in Java |
+| ADR-004 | Java 25 / Spring Boot 4.1 for Foundation | ✅ Accepted | 2026-07-23 | All foundation services in Java |
 | ADR-005 | Shared PostgreSQL 18 (Existing) | ✅ Accepted | 2026-07-22 | Use existing PostgreSQL. No dedicated container. |
 | ADR-006 | Nginx Edge + Cloudflare TLS (Existing) | ✅ Accepted | 2026-07-22 | Keep existing edge infrastructure. Gate is internal. |
 | ADR-007 | JWT Local Validation at Gate | ✅ Accepted | 2026-07-22 | Validate JWT signature locally via cached JWKS |
@@ -110,9 +110,32 @@ standard_ref:
 
 ---
 
-## ADR-004: Java 21 / Spring Boot for Foundation
+## ADR-004: Java 25 / Spring Boot 4.1 for Foundation
 
-*(Unchanged from v0.1 — Spring ecosystem provides native Gateway, Security, and Discovery integrations)*
+| Field | Detail |
+|-------|--------|
+| **Status** | ✅ Accepted |
+| **Date** | 2026-07-23 (updated from v0.2 — version upgraded) |
+
+### Context
+
+> Foundation services need a JVM runtime and web framework. Java 25 is the latest LTS release. Spring Boot 4.1.x is the latest GA version with Spring Cloud 2025.1.x (Oakwood) — which provides native Gateway, Security, and Discovery integrations.
+
+### Decision
+
+> **Use Java 25 / Spring Boot 4.1.x / Spring Cloud 2025.1.x for all foundation services.** This is the latest stable stack. Java 25 is LTS. Spring Boot 4.1 brings reactive-first improvements. Spring Cloud 2025.1 (Oakwood) provides the gateway, security, and Eureka integrations needed.
+
+### Consequences
+
+**Positive:**
+- Latest LTS Java — long support window
+- Boot 4.1 reactive-first design aligns with WebFlux/Netty gateway
+- Records, pattern matching, and virtual threads available
+- Spring Cloud 2025.1 renames gateway artifact to `spring-cloud-gateway-server-webflux`
+
+**Negative:**
+- Bleeding edge — some third-party libraries may lag behind Java 25 / Boot 4.1 compatibility
+- Boot 4.x has breaking changes from 3.x (jakarta namespace, Security 7 API changes)
 
 ---
 

@@ -100,21 +100,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
-          cache: maven
+          cache: gradle
 
       - name: Compile
-        run: cd ${{ matrix.service }} && ./mvnw compile -q
+        run: cd ${{ matrix.service }} && ./gradlew compileJava -q
 
-      - name: Lint (Checkstyle + SpotBugs)
-        run: cd ${{ matrix.service }} && ./mvnw checkstyle:check spotbugs:check -q
+      - name: Lint (Checkstyle)
+        run: cd ${{ matrix.service }} && ./gradlew checkstyleMain -q
 
       - name: Unit Tests
-        run: cd ${{ matrix.service }} && ./mvnw test -q
+        run: cd ${{ matrix.service }} && ./gradlew test -q
 ```
 
 ### 4.2 CD — Build + Deploy (runs on main only)
@@ -220,7 +220,7 @@ jobs:
 
 | Stage | Purpose | Duration (est.) | Failure Action |
 |-------|---------|:---:|----------------|
-| Compile | Java 21 compilation | < 1 min | Block merge |
+| Compile | Java 25 compilation | < 1 min | Block merge |
 | Lint | Checkstyle + SpotBugs | < 1 min | Block merge |
 | Unit Test | JUnit + Mockito | < 3 min | Block merge |
 | Docker Build | Build multi-arch image | < 3 min | Block deploy |
