@@ -1,6 +1,6 @@
 ---
 document_type: README / Developer Guide
-version: "1.0"
+version: "2.0"
 status: Draft
 author: "[Technical Lead]"
 created: "[YYYY-MM-DD]"
@@ -11,6 +11,7 @@ classification: "Internal / Confidential"
 tags: [readme, developer-guide, onboarding, swebok]
 standard_ref:
   - SWEBOK v4 — Construction
+  - 12-Factor App Methodology
 ---
 
 # README / Developer Guide
@@ -23,148 +24,225 @@ standard_ref:
 
 ## 1. Purpose
 
-> The README is the entry point for developers — project overview, setup instructions, architecture summary, and contribution guidelines.
+> The README is the **front door**. A developer must be able to clone, build, and run the service in < 5 minutes using these instructions. If they can't, the README needs work.
 
-## 2. Project Overview
+## 2. README Structure
+
+A complete README covers these sections. Pick the right tech-stack variant for each.
+
+### 2.1 Project Header
 
 ```markdown
-# Project Name
+# Service Name 🏷️
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-85%25-yellow)]()
-[![License](https://img.shields.io/badge/license-MIT-blue)]()
+> One-line description — what it does, who it's for, why it exists.
+>
+> **Platform:** [Parent Platform Name] | **Phase:** [1 | 2 | N]
 
-## Description
+| Aspect | Detail |
+|--------|--------|
+| **Service Type** | [Foundation | Business | Infrastructure] |
+| **Technology** | [Spring Cloud Eureka | Keycloak | Spring Cloud Gateway | etc.] |
+| **Stack** | [Java 25 / Spring Boot 4.1 | Go | TypeScript / Node.js] |
+| **Ports** | [8999 (API) · 3999 (Dashboard)] |
+| **Domain** | `[service].example.com` (via reverse proxy) |
+| **Database** | [None (in-memory) | PostgreSQL 18 | MongoDB 8] |
+```
 
-Brief description of the project — what it does, who it's for, why it exists.
+### 2.2 Architecture Diagram
 
+```markdown
+## Architecture
+
+\```
+                    ┌─ REST API ─── :XXXX ─── [purpose]
+  [service-name] ───┤
+                    └─ Dashboard ─── :YYYY ─── [domain]
+\```
+```
+
+### 2.3 Quick Start — Tech-Stack Variants
+
+**Variant A: Java / Gradle / Spring Boot** (Flowero Discover, Gate, Guard)
+
+```markdown
+## Quick Start
+
+### Prerequisites
+
+- **JDK [version]** ([Eclipse Temurin](https://adoptium.net/) recommended)
+- **Gradle** (wrapper included — `./gradlew`)
+
+### Build & Run
+
+\```bash
+# Build (compiles + tests + packages bootJar)
+./gradlew build
+
+# Run locally
+./gradlew bootRun
+\```
+
+The service starts on **port [XXXX]**.
+
+### Docker
+
+\```bash
+# Build image
+docker build -t [service-name] .
+
+# Run container
+docker run -p XXXX:XXXX [service-name]
+\```
+
+### Verify
+
+\```bash
+# Health check
+curl http://localhost:[XXXX]/actuator/health
+# Expected: {"status":"UP"}
+\```
+```
+
+**Variant B: Node.js / TypeScript / npm** (Tiny Mchwa, Fluffy Mouton)
+
+```markdown
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js v20+
-- Docker
-- PostgreSQL 15
+- npm
 
-### Installation
+### Install & Run
 
-```bash
-# Clone repository
-git clone https://github.com/org/project.git
-cd project
-
-# Install dependencies
+\```bash
 npm install
-
-# Set up environment
 cp .env.example .env
-
-# Start development environment
-docker-compose up -d
 npm run dev
+\```
+
+### Verify
+
+\```bash
+curl http://localhost:[XXXX]/health
+\```
 ```
 
-### Verify Installation
+**Variant C: Go** (Cute Gufo)
 
-```bash
-# Run tests
-npm test
+```markdown
+## Quick Start
 
-# Check health
-curl http://localhost:3000/health
+### Prerequisites
+
+- Go [version]+
+
+### Build & Run
+
+\```bash
+go mod download
+go build -o bin/[service-name] ./cmd/[service-name]
+./bin/[service-name]
+\```
+
+### Verify
+
+\```bash
+curl http://localhost:[XXXX]/health
+\```
 ```
 
-## Architecture
+### 2.4 Configuration Reference
 
-See [[System-Architecture-Description]] for detailed architecture.
+```markdown
+## Configuration
 
-```
-project/
-├── frontend/          # React frontend
-├── backend/           # Node.js backend
-│   ├── services/      # Microservices
-│   ├── shared/        # Shared utilities
-│   └── infra/         # Infrastructure
-├── docs/              # Documentation
-└── scripts/           # Build/deploy scripts
+Key settings in `[application.yml | .env | config.yaml]`:
+
+| Property | Value | Why |
+|----------|-------|-----|
+| [prop] | [value] | [rationale] |
 ```
 
-## Development
+### 2.5 API Reference
 
-See [[035_coding_standards_development]] for code style guidelines.
+```markdown
+## API Reference
 
-### Branch Strategy
+See the full [[API-Specification]].
 
-- `main` — Production-ready code
-- `develop` — Integration branch
-- `feature/*` — Feature branches
-- `hotfix/*` — Production fixes
-
-### Commit Convention
-
-See [[034_commit_messages_changelog]] for commit format.
-
-```
-feat: add new feature
-fix: resolve bug
-docs: update documentation
-refactor: improve code structure
-test: add tests
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| [/path] | [GET] | [description] |
 ```
 
+### 2.6 Related Services
+
+```markdown
+## Related Services
+
+| Service | How It Uses This Service |
+|---------|-------------------------|
+| [Service A] | [e.g., resolves routes through this registry] |
+```
+
+### 2.7 Testing
+
+```markdown
 ## Testing
 
-See [[041_test_plan]] for testing strategy.
+\```bash
+# Java/Gradle
+./gradlew test
 
-```bash
-# Unit tests
-npm run test:unit
-
-# Integration tests
-npm run test:integration
-
-# E2E tests
-npm run test:e2e
-
-# All tests
+# Node.js
 npm test
+
+# Go
+go test ./...
+\```
+
+Tests cover:
+- ✅ [test category 1]
+- ✅ [test category 2]
 ```
 
-## Deployment
+### 2.8 Design Decisions
 
-See [[052_deployment_plan]] for deployment procedures.
+```markdown
+## Design Decisions
 
-## API Documentation
+| ADR | Decision |
+|-----|----------|
+| [ADR-ID] | [One-line summary] |
 
-See [[API-Documentation]] for API reference.
+Full ADRs: [[architecture_decision_records]]
+```
 
-## Contributing
+### 2.9 Reference Links
 
-1. Fork the repository
-2. Create a feature branch
-3. Write tests
-4. Submit a pull request
+```markdown
+## Reference
 
-## Support
+- [Official docs link]
+- [Platform SAD link]
+```
 
-- Documentation: `/docs`
-- Issues: GitHub Issues
-- Slack: #project-support
+## 3. README Sections Checklist
 
-## 3. README Sections
-
-| Section | Required | Description |
-|---------|---------|-------------|
-| [Description] | ✅ | [What the project does] |
-| [Quick Start] | ✅ | [Setup in < 5 minutes] |
-| [Architecture] | ✅ | [High-level overview] |
-| [Development] | ✅ | [How to contribute] |
-| [Testing] | ✅ | [How to run tests] |
-| [Deployment] | ✅ | [How to deploy] |
-| [API Docs] | ✅ | [API reference link] |
-| [Contributing] | ✅ | [Contribution guidelines] |
-| [License] | ✅ | [License type] |
-| [Changelog] | 🟡 | [Link to changelog] |
+| Section | Required | Purpose |
+|---------|:---:|---------|
+| Project header (name + one-liner + metadata table) | ✅ | First impression — what is this? |
+| Architecture diagram | ✅ | Visual overview in 30 seconds |
+| Quick Start — prerequisites + build + run + verify | ✅ | Clone → running in < 5 min |
+| Docker instructions | ✅ | Containerized deployment |
+| Configuration reference table | ✅ | What every knob does and why |
+| API reference / link to spec | ✅ | Contract for consumers |
+| Related services | 🟡 | How this fits into the platform |
+| Testing (how to run) | ✅ | One command to run tests |
+| Design decisions (ADR links) | 🟡 | Why, not just what |
+| Reference links | 🟡 | Further reading |
 
 ---
 
@@ -173,12 +251,12 @@ See [[API-Documentation]] for API reference.
 | Document | Relationship |
 |----------|-------------|
 | [[035_coding_standards_development]] | Code style guidelines |
-| [[API-Documentation]] | API reference |
+| [[022_API_specification]] | API reference template |
 | [[041_test_plan]] | Testing strategy |
 | [[052_deployment_plan]] | Deployment procedures |
-| [[034_commit_messages_changelog]] | Commit format |
+| [[021_architecture_decision_records]] | Design rationale |
 
 ---
 
-> **Template Standard:** Based on SWEBOK v4
-> **Usage:** The README is the *front door*. If a developer can't set up the project in 5 minutes using the README, the README needs work.
+> **Template Standard:** Based on SWEBOK v4, 12-Factor App
+> **Usage:** Pick the tech-stack variant (Java/Gradle, Node.js/npm, or Go) for the Quick Start section. Every project README should follow this structure. If a developer can't set up in 5 minutes, fix the README.
