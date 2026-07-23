@@ -175,7 +175,7 @@ treeView-beta
 - [[flowero_guard/012_user_stories | Flowero Guard Stories]]
 - [[flowero_discover/012_user_stories | Flowero Discover Stories]]
 - [[flowero_gate/012_user_stories | Flowero Gate Stories]]
-- [[meeting-minute/affect-doc | Design Review — Meeting Minutes (2026-07-22)]]
+- [[MM01_affect-doc_20260722| Design Review — Meeting Minutes (2026-07-22)]]
 
 ---
 

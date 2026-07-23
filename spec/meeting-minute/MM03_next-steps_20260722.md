@@ -28,7 +28,7 @@ tags: [meeting-minutes, design-phase-complete, handoff, next-steps]
 - Reviewed all 12 PO requirement documents (v0.1)
 - Dev persona conducted design review (`/grill-me`)
 - Identified 9 design decisions that conflicted with existing production infrastructure
-- Created [[affect-doc]] — 13 PO documents requiring changes
+- Created [[MM01_affect-doc_20260722]] — 13 PO documents requiring changes
 
 ### Midday — PO Updates (PO Solo)
 
@@ -43,7 +43,7 @@ tags: [meeting-minutes, design-phase-complete, handoff, next-steps]
   - Shared PostgreSQL 18 + Valkey 9
   - Cloudflare handles TLS
   - Observability deferred to Phase 2
-- Created [[po-update-2026-07-22]] — meeting record
+- Created [[MM02_po-update_20260722]] — meeting record
 - Handed back to Dev persona
 
 ### Afternoon — Design Rewrite (Dev/SA Solo)
@@ -258,8 +258,8 @@ Cloudflare → Nginx ─┼─ discovery.panomete.com ───→ Flowero Disco
 
 | Document | Relationship |
 |----------|-------------|
-| [[affect-doc]] | Original design review that triggered all changes |
-| [[po-update-2026-07-22]] | PO update record |
+| [[MM01_affect-doc_20260722]] | Original design review that triggered all changes |
+| [[MM02_po-update_20260722]] | PO update record |
 | [[panomete_platform/README]] | Architecture overview |
 | [[panomete_platform/025_software_architecture_document]] | Full SAD |
 | [[panomete_platform/021_architecture_decision_records]] | All 9 platform ADRs |
